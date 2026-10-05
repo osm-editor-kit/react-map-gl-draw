@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
 import { Layer, Marker, Source, type LayerProps, type MarkerDragEvent } from 'react-map-gl/maplibre'
 import { useStore } from 'zustand'
-import { handleDrag, handleDragStart, keyDown, pointerUp } from './reducer'
+import { handleDrag, handleDragStart, keyDown, pointerUp, sameFeatures } from './reducer'
 import { buildRenderData, moveHandleAnchor } from './renderData'
 import { resolveSlotStyle, slotFilters, slotOrder, slotTypes, type DrawStylesInput } from './styles'
 import type { DrawInstance } from './useDraw'
@@ -68,7 +68,7 @@ export const DrawLayers = ({
   moveHandle,
   keyboard = true,
 }: Props) => {
-  const { controller, value, options, enabled, selectedId, tool, run } = draw.internal
+  const { controller, value, appValue, options, enabled, selectedId, tool, run } = draw.internal
   const { store } = controller
   const preview = useStore(store, (state) => state.preview)
   const draft = useStore(store, (state) => state.draft)
@@ -93,6 +93,8 @@ export const DrawLayers = ({
     if (!enabled || !keyboard || event.defaultPrevented || isTyping(event.target)) return
     // Cmd+Backspace and friends belong to the browser; a key during IME composition to the IME.
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
+    // A held Backspace steps back through the corners being drawn, and stops there.
+    if (event.repeat && store.getState().draft === null) return
     let handled = false
     run((state, ctx) => {
       const result = keyDown(state, event.key, ctx)
@@ -109,6 +111,23 @@ export const DrawLayers = ({
   }, [])
 
   useEffect(
+    function endSettlingWhenValueArrives() {
+      const state = store.getState()
+      if (state.settling && !sameFeatures(state.settling.base, appValue)) {
+        store.setState({ ...state, settling: null }, true)
+      }
+    },
+    [store, appValue],
+  )
+
+  useEffect(
+    function dropGestureWhenDisabled() {
+      if (!enabled) controller.reset()
+    },
+    [controller, enabled],
+  )
+
+  useEffect(
     function resetGestureStateOnUnmount() {
       return () => controller.reset()
     },
@@ -122,8 +141,10 @@ export const DrawLayers = ({
 
   const shapes = preview ?? value
   const selected = enabled && !draft ? shapes.find((shape) => shape.id === selectedId) : undefined
+  const anchor = selected ? moveHandleAnchor(selected) : null
   const showMoveHandle =
     selected !== undefined &&
+    anchor !== null &&
     !draggingCorner &&
     (selected.geometry.type === 'LineString' ||
       (selected.geometry.type === 'Polygon' && options.moveBy === 'handle'))
@@ -149,7 +170,7 @@ export const DrawLayers = ({
       })}
       {showMoveHandle && (
         <Marker
-          {...moveHandleAnchor(selected)}
+          {...anchor}
           anchor="bottom"
           offset={[0, -14]}
           draggable
@@ -161,7 +182,11 @@ export const DrawLayers = ({
           onDrag={(event: MarkerDragEvent) =>
             run((state, ctx) => handleDrag(state, [event.lngLat.lng, event.lngLat.lat], ctx))
           }
-          onDragEnd={() => run((state, ctx) => pointerUp(state, Date.now(), ctx))}
+          onDragEnd={() =>
+            run((state, ctx) =>
+              pointerUp(state, { time: Date.now(), point: null, pointerType: 'mouse' }, ctx),
+            )
+          }
         >
           {moveHandle ?? <DefaultMoveHandle />}
         </Marker>

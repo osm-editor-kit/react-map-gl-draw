@@ -11,11 +11,13 @@ export const shapeTypeOf = (geometry: DrawGeometry) =>
 export const samePosition = (a: Position | undefined, b: Position | undefined) =>
   a !== undefined && b !== undefined && a[0] === b[0] && a[1] === b[1]
 
+// Positions may carry elevation or more after lng/lat; edits keep whatever is there.
 export const roundPosition = (position: Position, precision: number) => {
   const factor = 10 ** precision
   return [
     Math.round((position[0] ?? 0) * factor) / factor,
     Math.round((position[1] ?? 0) * factor) / factor,
+    ...position.slice(2),
   ] satisfies Position
 }
 
@@ -77,7 +79,9 @@ export const moveVertex = (
   position: Position,
 ) =>
   replaceRing(geometry, ring, (current) =>
-    current.map((existing, i) => (i === index ? position : existing)),
+    current.map((existing, i) =>
+      i === index ? [position[0] ?? 0, position[1] ?? 0, ...existing.slice(2)] : existing,
+    ),
   )
 
 /** Inserts so that the new corner ends up at `index`. */
@@ -122,7 +126,11 @@ export const translateGeometry = (geometry: DrawGeometry, dLng: number, dLat: nu
   withRings(
     geometry,
     ringsOf(geometry).map((ring) =>
-      ring.map((position) => [(position[0] ?? 0) + dLng, (position[1] ?? 0) + dLat]),
+      ring.map((position) => [
+        (position[0] ?? 0) + dLng,
+        (position[1] ?? 0) + dLat,
+        ...position.slice(2),
+      ]),
     ),
   )
 

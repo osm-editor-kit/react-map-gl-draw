@@ -19,7 +19,8 @@
   "author": "Tobias Jordans",
   "repository": {
     "type": "git",
-    "url": "https://github.com/osm-editor-kit/react-map-gl-draw"
+    "url": "https://github.com/osm-editor-kit/react-map-gl-draw",
+    "directory": "packages/react-map-gl-draw"
   },
   "files": [
     "dist"
@@ -29,7 +30,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },

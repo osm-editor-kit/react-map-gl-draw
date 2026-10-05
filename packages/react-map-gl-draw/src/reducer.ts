@@ -100,7 +100,7 @@ export const effectiveTool = (state: DrawState, value: DrawFeature[], options: R
   return tool
 }
 
-const sameFeatures = (a: DrawFeature[], b: DrawFeature[]) =>
+export const sameFeatures = (a: DrawFeature[], b: DrawFeature[]) =>
   a === b || JSON.stringify(a) === JSON.stringify(b)
 
 /**
@@ -128,8 +128,10 @@ const isDoubleTap = (
   point: ScreenPoint,
   pointerType: PointerInput['pointerType'],
   time: number,
+  target: string | null = null,
 ) =>
   lastTap !== null &&
+  lastTap.target === target &&
   time - lastTap.time <= DOUBLE_TAP_MS &&
   distance(lastTap.point, point) <= DOUBLE_TAP_DISTANCE[pointerType]
 
@@ -454,11 +456,15 @@ const translatePreview = (
 
 const commitPreview = (state: DrawState, featureId: string, ctx: ReduceContext): ReduceResult => {
   const cleared = { ...state, gesture: null, preview: null, lastTap: null }
-  if (!state.preview) return { state: cleared }
+  // Only the edited shape is taken from the working copy. The app may have added or removed
+  // other shapes while the drag ran, and that must survive the commit.
+  const edited = state.preview?.find((feature) => feature.id === featureId)
+  if (!edited || !ctx.value.some((feature) => feature.id === featureId)) return { state: cleared }
+  const merged = ctx.value.map((feature) => (feature.id === featureId ? edited : feature))
   return {
     state: cleared,
     commit: {
-      features: roundFeature(state.preview, featureId, ctx.options.precision),
+      features: roundFeature(merged, featureId, ctx.options.precision),
       meta: { reason: 'edit', featureId },
     },
   }
@@ -487,7 +493,7 @@ const click = (
   ctx: ReduceContext,
 ): ReduceResult => {
   const { value, options, project } = ctx
-  const tap = { time, point: start.point }
+  const tap = { time, point: start.point, target: null }
   const double = isDoubleTap(state.lastTap, start.point, start.pointerType, time)
 
   if (state.draft) {
@@ -514,6 +520,8 @@ const click = (
   if (tool !== 'select' && hit === null) {
     const position = roundPosition(start.lngLat, options.precision)
     if (tool === 'point') {
+      // With `keepTool`, the second click of a double click would stack a second point.
+      if (double) return { state }
       return addFeature(state, { type: 'Point', coordinates: position }, ctx, tap)
     }
     if (tool === 'line' || tool === 'polygon') {
@@ -535,17 +543,35 @@ const click = (
   return { state }
 }
 
-export const pointerUp = (state: DrawState, time: number, ctx: ReduceContext): ReduceResult => {
+export type PointerRelease = {
+  time: number
+  /** Where the pointer was released, or `null` when that happened outside the map. */
+  point: ScreenPoint | null
+  pointerType: PointerInput['pointerType']
+}
+
+export const pointerUp = (
+  state: DrawState,
+  release: PointerRelease,
+  ctx: ReduceContext,
+): ReduceResult => {
   const gesture = state.gesture
   if (!gesture) return { state }
   const cleared = { ...state, gesture: null, preview: null }
+  const { time } = release
 
   switch (gesture.kind) {
     case 'pan':
       return { state: cleared }
 
-    case 'press':
-      return click(cleared, gesture.start, gesture.hit, time, ctx)
+    case 'press': {
+      // MapLibre stops reporting pointer moves once it pans, so a pan is only visible here,
+      // as a release away from the press.
+      const moved =
+        release.point === null ||
+        distance(gesture.start.point, release.point) > DRAG_THRESHOLD[release.pointerType]
+      return moved ? { state: cleared } : click(cleared, gesture.start, gesture.hit, time, ctx)
+    }
 
     case 'vertex': {
       if (gesture.moved || gesture.source === 'midpoint') {
@@ -554,11 +580,12 @@ export const pointerUp = (state: DrawState, time: number, ctx: ReduceContext): R
       // A press on a line that did not move adds nothing.
       if (gesture.source === 'edge') return { state: { ...cleared, activeVertex: null } }
       // Double tap on a corner removes it.
-      const { start } = gesture
-      if (isDoubleTap(state.lastTap, start.point, start.pointerType, time)) {
+      const { start, ref } = gesture
+      const target = `${ref.featureId}/${ref.ring}/${ref.index}`
+      if (isDoubleTap(state.lastTap, start.point, start.pointerType, time, target)) {
         return deleteActiveVertex({ ...cleared, lastTap: null }, ctx)
       }
-      return { state: { ...cleared, lastTap: { time, point: start.point } } }
+      return { state: { ...cleared, lastTap: { time, point: start.point, target } } }
     }
 
     case 'feature':
@@ -615,6 +642,9 @@ export const handleDrag = (
 export type KeyResult = ReduceResult & { handled: boolean }
 
 export const keyDown = (state: DrawState, key: string, ctx: ReduceContext): KeyResult => {
+  // While a drag runs, only Escape acts; a Delete would fight with the release.
+  if (state.gesture && key !== 'Escape') return { state, handled: false }
+
   switch (key) {
     case 'Escape': {
       if (state.draft) return { ...cancelDraft(state), handled: true }
@@ -639,7 +669,9 @@ export const keyDown = (state: DrawState, key: string, ctx: ReduceContext): KeyR
           handled: true,
         }
       }
-      if (state.activeVertex) {
+      const { activeVertex } = state
+      if (activeVertex && ctx.value.some((feature) => feature.id === activeVertex.featureId)) {
+        // A corner that cannot be removed must not delete the whole shape instead.
         const result = deleteActiveVertex(state, ctx)
         return { ...result, handled: result.commit !== undefined }
       }

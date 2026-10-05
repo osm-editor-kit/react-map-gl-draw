@@ -136,5 +136,7 @@ export const buildRenderData = (
 /** Where the move handle sits: above the middle of the shape's bounding box. */
 export const moveHandleAnchor = (shape: DrawFeature) => {
   const [minLng, , maxLng, maxLat] = bboxOf(shape.geometry)
-  return { longitude: (minLng + maxLng) / 2, latitude: maxLat }
+  const anchor = { longitude: (minLng + maxLng) / 2, latitude: maxLat }
+  // A shape without corners has no bounding box.
+  return Number.isFinite(anchor.longitude) && Number.isFinite(anchor.latitude) ? anchor : null
 }

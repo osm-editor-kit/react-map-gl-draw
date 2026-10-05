@@ -12,9 +12,10 @@ const map = {
   getCanvas: () => canvas,
 }
 
-const windowListeners = new Map<string, Set<() => void>>()
-const fireOnWindow = (type: string) => {
-  for (const listener of windowListeners.get(type) ?? []) listener()
+type WindowListener = (event: { button: number }) => void
+const windowListeners = new Map<string, Set<WindowListener>>()
+const fireOnWindow = (type: string, event = { button: 0 }) => {
+  for (const listener of windowListeners.get(type) ?? []) listener(event)
 }
 const windowListenerCount = () =>
   [...windowListeners.values()].reduce((sum, listeners) => sum + listeners.size, 0)
@@ -24,11 +25,11 @@ beforeEach(() => {
   vi.setSystemTime(100_000)
   windowListeners.clear()
   vi.stubGlobal('window', {
-    addEventListener: (type: string, listener: () => void) => {
+    addEventListener: (type: string, listener: WindowListener) => {
       if (!windowListeners.has(type)) windowListeners.set(type, new Set())
       windowListeners.get(type)!.add(listener)
     },
-    removeEventListener: (type: string, listener: () => void) => {
+    removeEventListener: (type: string, listener: WindowListener) => {
       windowListeners.get(type)?.delete(listener)
     },
   })
@@ -168,7 +169,6 @@ describe('drags', () => {
     const down = a.event(700, 700)
     a.handlers().onMouseDown(down)
     expect(down.defaultPrevented).toBe(false)
-    expect(windowListenerCount()).toBe(0)
   })
 
   it('commits a drag that is released outside the map, and only once', () => {
@@ -180,6 +180,38 @@ describe('drags', () => {
     expect(windowListenerCount()).toBe(0)
     a.handlers().onMouseUp(a.event(260, 260))
     expect(a.changes).toHaveLength(1)
+  })
+
+  it('releases a plain press outside the map without clicking', () => {
+    const a = app([], { emptyTool: 'point' })
+    a.handlers().onMouseDown(a.event(100, 100))
+    fireOnWindow('mouseup', { button: 0 })
+    expect(a.changes).toEqual([])
+    expect(a.controller.store.getState().gesture).toBeNull()
+    expect(windowListenerCount()).toBe(0)
+  })
+
+  it('does not end a drag on a right-button release', () => {
+    const a = app([square], { selectSingle: true })
+    a.handlers().onMouseDown(a.event(200, 200))
+    a.handlers().onMouseMove(a.event(260, 260))
+    fireOnWindow('mouseup', { button: 2 })
+    expect(a.changes).toEqual([])
+    expect(a.controller.store.getState().gesture).not.toBeNull()
+  })
+
+  it('sends a release outside the map to the latest onChange', () => {
+    const a = app([square], { selectSingle: true })
+    a.handlers().onMouseDown(a.event(200, 200))
+    const laterRender: string[] = []
+    createDrawHandlers(a.controller, {
+      appValue: a.value,
+      options: resolveOptions({}),
+      onChange: () => laterRender.push('called'),
+    }).mapHandlers.onMouseMove(a.event(260, 260))
+    fireOnWindow('mouseup', { button: 0 })
+    expect(laterRender).toEqual(['called'])
+    expect(a.changes).toEqual([])
   })
 
   it('drops a drag when the window loses focus', () => {
@@ -245,11 +277,19 @@ describe('settling', () => {
     expect(ring[2]).toEqual(at(260, 260))
   })
 
-  it('reverts a change the app never applies, on the first event after a second', () => {
+  it('reverts a change the app never applies after a second, without any event', () => {
     const a = app([square], { selectSingle: true }, { applyChanges: false })
     dragCorner(a)
     vi.advanceTimersByTime(1500)
+    expect(a.shown()).toEqual([square])
+  })
+
+  it('does not bring a change back when the app undoes it', () => {
+    const a = app([square], { selectSingle: true })
+    dragCorner(a)
+    // Any later event sees that the app applied the change; then the app undoes it.
     a.handlers().onMouseMove(a.event(700, 700))
+    a.value = [square]
     expect(a.shown()).toEqual([square])
   })
 })

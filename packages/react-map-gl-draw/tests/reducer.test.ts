@@ -40,6 +40,7 @@ const surface = (
     state: initialDrawState as DrawState,
     commits: [] as DrawChangeMeta[],
     time: 1000,
+    last: { x: 0, y: 0 },
     apply(result: ReduceResult) {
       self.state = result.state
       if (result.commit) {
@@ -51,11 +52,27 @@ const surface = (
     ctx: () => ({ value: self.value, options, project }),
     input: (x: number, y: number, pointerType: PointerInput['pointerType'] = 'mouse') =>
       ({ point: { x, y }, lngLat: at(x, y), pointerType, time: self.time }) satisfies PointerInput,
-    down: (x: number, y: number) =>
+    down: (x: number, y: number) => {
+      self.last = { x, y }
+      return self.downAt(x, y)
+    },
+    downAt: (x: number, y: number) =>
       self.apply(pointerDown(self.state, self.input(x, y), self.ctx())),
-    move: (x: number, y: number) =>
+    move: (x: number, y: number) => {
+      self.last = { x, y }
+      return self.moveAt(x, y)
+    },
+    moveAt: (x: number, y: number) =>
       self.apply(pointerMove(self.state, self.input(x, y), self.ctx())),
-    up: () => self.apply(pointerUp(self.state, self.time, self.ctx())),
+    /** Releases where the pointer was last seen, or at `point` (`null`: outside the map). */
+    up: (point?: { x: number; y: number } | null) =>
+      self.apply(
+        pointerUp(
+          self.state,
+          { time: self.time, point: point === undefined ? self.last : point, pointerType: 'mouse' },
+          self.ctx(),
+        ),
+      ),
     /** Press and release in place, then let enough time pass that the next one is no double click. */
     click(x: number, y: number) {
       self.down(x, y)
@@ -484,7 +501,7 @@ describe('cursor', () => {
 
 describe('settling', () => {
   const committed = [square('a', 50)]
-  const settling = { base: [square()], features: committed, until: 0 }
+  const settling = { base: [square()], features: committed }
 
   it('shows the committed change while the app value is still the old one', () => {
     expect(currentFeatures({ settling }, [square()])).toBe(committed)
@@ -494,5 +511,109 @@ describe('settling', () => {
     const fromApp = [square('a', 50)]
     expect(currentFeatures({ settling }, fromApp)).toBe(fromApp)
     expect(currentFeatures({ settling: null }, fromApp)).toBe(fromApp)
+  })
+})
+
+describe('review findings', () => {
+  it('does not add a corner when the map was panned without any move event', () => {
+    const s = surface([], { emptyTool: 'polygon' })
+    s.click(100, 100)
+    s.down(300, 300)
+    s.up({ x: 420, y: 380 })
+    expect(s.state.draft?.coordinates).toHaveLength(1)
+  })
+
+  it('does not click when a press is released outside the map', () => {
+    const s = surface([], { emptyTool: 'point' })
+    s.down(100, 100)
+    s.up(null)
+    expect(s.commits).toEqual([])
+    expect(s.state.gesture).toBeNull()
+  })
+
+  it('keeps a shape the app added while a drag ran', () => {
+    const s = surface([square()], { selectSingle: true })
+    s.down(200, 200)
+    s.move(260, 260)
+    s.value = [...s.value, square('added', 400)]
+    s.up()
+    expect(s.value.map((feature) => feature.id)).toEqual(['a', 'added'])
+    expect(ringOf(s.value[0])[2]).toEqual(at(260, 260))
+  })
+
+  it('commits nothing when the dragged shape was removed meanwhile', () => {
+    const s = surface([square(), square('b', 300)])
+    s.down(150, 150)
+    s.move(250, 170)
+    s.value = [square('b', 300)]
+    s.up()
+    expect(s.commits).toEqual([])
+    expect(s.value.map((feature) => feature.id)).toEqual(['b'])
+  })
+
+  it('ignores Delete while a corner is dragged', () => {
+    const s = surface([square()], { selectSingle: true })
+    s.down(200, 200)
+    s.move(260, 260)
+    s.key('Delete')
+    s.up()
+    expect(s.commits).toEqual([{ reason: 'edit', featureId: 'a' }])
+    expect(ringOf(s.value[0])).toHaveLength(5)
+  })
+
+  it('does not delete the shape when its last removable corner is active', () => {
+    const triangle = surface([], { emptyTool: 'polygon', selectSingle: true })
+    triangle.click(100, 100)
+    triangle.click(200, 100)
+    triangle.click(200, 200)
+    triangle.key('Enter')
+    triangle.click(200, 200)
+    triangle.key('Delete')
+    expect(triangle.value).toHaveLength(1)
+    expect(ringOf(triangle.value[0])).toHaveLength(4)
+  })
+
+  it('needs both taps on the same corner to remove it', () => {
+    const closeCorners = {
+      type: 'Feature',
+      id: 'l',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: [at(100, 100), at(107, 100), at(300, 100)] },
+    } satisfies DrawFeature
+    const s = surface([closeCorners], { selectSingle: true })
+    s.down(101, 100)
+    s.up()
+    s.time += 100
+    s.down(106, 100)
+    s.up()
+    expect(s.commits).toEqual([])
+  })
+
+  it('does not stack two points on a double click with keepTool', () => {
+    const s = surface([], { keepTool: true })
+    s.tool('point')
+    s.doubleClick(100, 100)
+    expect(s.value).toHaveLength(1)
+  })
+
+  it('keeps elevation when a corner moves', () => {
+    const withElevation = {
+      type: 'Feature',
+      id: 'z',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [...at(100, 100), 35],
+          [...at(200, 100), 40],
+        ],
+      },
+    } satisfies DrawFeature
+    const s = surface([withElevation], { selectSingle: true })
+    s.drag([200, 100], [250, 150])
+    expect(s.value[0]?.geometry.coordinates).toEqual([
+      [...at(100, 100), 35],
+      [...at(250, 150), 40],
+    ])
   })
 })

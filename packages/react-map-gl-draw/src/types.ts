@@ -121,10 +121,11 @@ export type DrawState = {
   /** Working copy of `value` while a drag runs. Render this instead of `value` when set. */
   preview: DrawFeature[] | null
   hover: Hit | null
-  lastTap: { time: number; point: ScreenPoint } | null
+  /** `target` names the corner that was tapped, so two taps on different corners are no double tap. */
+  lastTap: { time: number; point: ScreenPoint; target: string | null } | null
   /**
    * The last committed change, shown until the app's `value` reflects it. A URL or a query
    * cache updates a moment after `onChange`; without this the old shape would flash back.
    */
-  settling: { base: DrawFeature[]; features: DrawFeature[]; until: number } | null
+  settling: { base: DrawFeature[]; features: DrawFeature[] } | null
 }
