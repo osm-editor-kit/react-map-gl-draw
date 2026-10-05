@@ -141,6 +141,7 @@ export const DrawLayers = ({
           layout: style.layout,
           ...(style.minzoom === undefined ? {} : { minzoom: style.minzoom }),
           ...(style.maxzoom === undefined ? {} : { maxzoom: style.maxzoom }),
+          // Slot type and paint belong together; the union of layer props cannot express that.
         } as LayerProps
         return <Layer key={slot} {...layer} beforeId={beforeId} />
       })}

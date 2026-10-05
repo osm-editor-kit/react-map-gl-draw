@@ -116,4 +116,9 @@ export type DrawState = {
   preview: DrawFeature[] | null
   hover: Hit | null
   lastTap: { time: number; point: ScreenPoint } | null
+  /**
+   * The last committed change, shown until the app's `value` reflects it. A URL or a query
+   * cache updates a moment after `onChange`; without this the old shape would flash back.
+   */
+  settling: { base: DrawFeature[]; features: DrawFeature[]; until: number } | null
 }

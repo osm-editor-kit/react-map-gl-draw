@@ -72,6 +72,7 @@ export const initialDrawState: DrawState = {
   preview: null,
   hover: null,
   lastTap: null,
+  settling: null,
 }
 
 // A press that moves less than this is a click, not a drag.
@@ -90,6 +91,16 @@ export const effectiveTool = (state: DrawState, value: DrawFeature[], options: R
   }
   return tool
 }
+
+const sameFeatures = (a: DrawFeature[], b: DrawFeature[]) =>
+  a === b || JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * The shapes to work with: the last committed change while the app's `value` still equals
+ * what it was at that commit, otherwise `value`.
+ */
+export const currentFeatures = (state: Pick<DrawState, 'settling'>, value: DrawFeature[]) =>
+  state.settling && sameFeatures(state.settling.base, value) ? state.settling.features : value
 
 /** A stored id that no longer exists counts as no selection. */
 export const effectiveSelectedId = (

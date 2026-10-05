@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "paths": {
+      "@osm-editor-kit/react-map-gl-draw": ["../../packages/react-map-gl-draw/src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

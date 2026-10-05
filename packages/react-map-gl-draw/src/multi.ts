@@ -1,4 +1,4 @@
-import type { GeoJsonProperties, Geometry, Position } from 'geojson'
+import type { GeoJsonProperties, Geometry } from 'geojson'
 import { shapeTypeOf } from './geometry'
 import type { DrawFeature, DrawGeometry } from './types'
 
@@ -53,19 +53,27 @@ export const geometryFromFeatures = (features: DrawFeature[]) => {
   const same = features.filter((feature) => shapeTypeOf(feature.geometry) === type)
   if (same.length === 1) return first.geometry
 
-  const coordinates = same.map((feature) => feature.geometry.coordinates)
   switch (type) {
     case 'point':
-      return { type: 'MultiPoint', coordinates: coordinates as Position[] } satisfies Geometry
+      return {
+        type: 'MultiPoint',
+        coordinates: same.flatMap(({ geometry }) =>
+          geometry.type === 'Point' ? [geometry.coordinates] : [],
+        ),
+      } satisfies Geometry
     case 'line':
       return {
         type: 'MultiLineString',
-        coordinates: coordinates as Position[][],
+        coordinates: same.flatMap(({ geometry }) =>
+          geometry.type === 'LineString' ? [geometry.coordinates] : [],
+        ),
       } satisfies Geometry
     case 'polygon':
       return {
         type: 'MultiPolygon',
-        coordinates: coordinates as Position[][][],
+        coordinates: same.flatMap(({ geometry }) =>
+          geometry.type === 'Polygon' ? [geometry.coordinates] : [],
+        ),
       } satisfies Geometry
   }
 }

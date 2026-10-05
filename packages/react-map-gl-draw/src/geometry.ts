@@ -151,7 +151,10 @@ export const midpointsOf = (geometry: DrawGeometry) => {
     segmentsOf(ring, closed).map(({ a, b, insertIndex }) => ({
       ring: ringIndex,
       index: insertIndex,
-      position: [((a[0] ?? 0) + (b[0] ?? 0)) / 2, ((a[1] ?? 0) + (b[1] ?? 0)) / 2] as Position,
+      position: [
+        ((a[0] ?? 0) + (b[0] ?? 0)) / 2,
+        ((a[1] ?? 0) + (b[1] ?? 0)) / 2,
+      ] satisfies Position,
     })),
   )
 }

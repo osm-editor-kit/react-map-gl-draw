@@ -1,6 +1,7 @@
 import type { Position } from 'geojson'
 import { describe, expect, it } from 'vitest'
 import {
+  currentFeatures,
   cursorFor,
   deleteSelected,
   effectiveSelectedId,
@@ -469,5 +470,20 @@ describe('cursor', () => {
     expect(s.cursor()).toBeUndefined()
     s.tool('line')
     expect(s.cursor()).toBe('crosshair')
+  })
+})
+
+describe('settling', () => {
+  const committed = [square('a', 50)]
+  const settling = { base: [square()], features: committed, until: 0 }
+
+  it('shows the committed change while the app value is still the old one', () => {
+    expect(currentFeatures({ settling }, [square()])).toBe(committed)
+  })
+
+  it('follows the app value as soon as it changes', () => {
+    const fromApp = [square('a', 50)]
+    expect(currentFeatures({ settling }, fromApp)).toBe(fromApp)
+    expect(currentFeatures({ settling: null }, fromApp)).toBe(fromApp)
   })
 })

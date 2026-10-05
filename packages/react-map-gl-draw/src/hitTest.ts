@@ -17,6 +17,8 @@ type HitTestInput = {
   tolerance: number
 }
 
+type Candidate = { ring: number; index: number; distance: number }
+
 const interpolate = (a: Position, b: Position, t: number) =>
   [
     (a[0] ?? 0) + ((b[0] ?? 0) - (a[0] ?? 0)) * t,
@@ -31,8 +33,8 @@ const nearestEdge = (
 ) => {
   if (feature.geometry.type === 'Point') return null
   const closed = feature.geometry.type === 'Polygon'
-  let best: { ring: number; index: number; position: Position; distance: number } | null = null
-  ringsOf(feature.geometry).forEach((ring, ringIndex) => {
+  let best: (Candidate & { position: Position }) | null = null
+  for (const [ringIndex, ring] of ringsOf(feature.geometry).entries()) {
     for (const { a, b, insertIndex } of segmentsOf(ring, closed)) {
       const result = distanceToSegment(point, project(a), project(b))
       if (result.distance <= tolerance && (!best || result.distance < best.distance)) {
@@ -44,8 +46,40 @@ const nearestEdge = (
         }
       }
     }
-  })
-  return best as { ring: number; index: number; position: Position; distance: number } | null
+  }
+  return best
+}
+
+const nearestVertex = (
+  feature: DrawFeature,
+  point: ScreenPoint,
+  project: Project,
+  tolerance: number,
+) => {
+  let best: Candidate | null = null
+  for (const [ringIndex, ring] of ringsOf(feature.geometry).entries()) {
+    for (const [index, position] of ring.entries()) {
+      const d = distance(point, project(position))
+      if (d <= tolerance && (!best || d < best.distance)) {
+        best = { ring: ringIndex, index, distance: d }
+      }
+    }
+  }
+  return best
+}
+
+const nearestMidpoint = (
+  feature: DrawFeature,
+  point: ScreenPoint,
+  project: Project,
+  tolerance: number,
+) => {
+  let best: (Candidate & { position: Position }) | null = null
+  for (const candidate of midpointsOf(feature.geometry)) {
+    const d = distance(point, project(candidate.position))
+    if (d <= tolerance && (!best || d < best.distance)) best = { ...candidate, distance: d }
+  }
+  return best
 }
 
 const insidePolygon = (feature: DrawFeature, point: ScreenPoint, project: Project) => {
@@ -77,32 +111,16 @@ const hitSelectedHandles = (
 ) => {
   if (feature.geometry.type === 'Point') return null
 
-  let vertex: { ring: number; index: number; distance: number } | null = null
-  ringsOf(feature.geometry).forEach((ring, ringIndex) => {
-    ring.forEach((position, index) => {
-      const d = distance(point, project(position))
-      if (d <= tolerance && (!vertex || d < vertex.distance)) {
-        vertex = { ring: ringIndex, index, distance: d }
-      }
-    })
-  })
-  const nearestVertex = vertex as { ring: number; index: number; distance: number } | null
-
-  let midpoint: { ring: number; index: number; position: Position; distance: number } | null = null
-  for (const candidate of midpointsOf(feature.geometry)) {
-    const d = distance(point, project(candidate.position))
-    if (d <= tolerance && (!midpoint || d < midpoint.distance)) {
-      midpoint = { ...candidate, distance: d }
-    }
-  }
+  const vertex = nearestVertex(feature, point, project, tolerance)
+  const midpoint = nearestMidpoint(feature, point, project, tolerance)
 
   // On short segments a corner and a midpoint overlap; the nearer one wins, a corner on a tie.
-  if (nearestVertex && (!midpoint || nearestVertex.distance <= midpoint.distance)) {
+  if (vertex && (!midpoint || vertex.distance <= midpoint.distance)) {
     return {
       role: 'vertex',
       featureId: feature.id,
-      ring: nearestVertex.ring,
-      index: nearestVertex.index,
+      ring: vertex.ring,
+      index: vertex.index,
     } satisfies Hit
   }
   if (midpoint) {
@@ -115,6 +133,7 @@ const hitSelectedHandles = (
     } satisfies Hit
   }
 
+  // Narrower than a handle, so the area next to a line still selects or pans.
   const edge = nearestEdge(feature, point, project, tolerance * 0.7)
   if (edge) {
     return {
@@ -158,13 +177,12 @@ export const hitTestDraft = (
   tolerance: number,
 ) => {
   let best: { index: number; distance: number } | null = null
-  draft.coordinates.forEach((position, index) => {
+  for (const [index, position] of draft.coordinates.entries()) {
     const d = distance(point, project(position))
     if (d <= tolerance && (!best || d < best.distance)) best = { index, distance: d }
-  })
-  const nearest = best as { index: number; distance: number } | null
-  if (!nearest) return null
+  }
+  if (!best) return null
   const end =
-    nearest.index === draft.coordinates.length - 1 ? 'last' : nearest.index === 0 ? 'first' : null
-  return { role: 'draft-vertex', index: nearest.index, end } satisfies Hit
+    best.index === draft.coordinates.length - 1 ? 'last' : best.index === 0 ? 'first' : null
+  return { role: 'draft-vertex', index: best.index, end } satisfies Hit
 }
