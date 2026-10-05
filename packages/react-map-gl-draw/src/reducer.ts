@@ -33,10 +33,17 @@ export type ResolvedOptions = {
   moveBy: 'body' | 'handle'
   emptyTool: Exclude<DrawTool, 'select'> | undefined
   selectSingle: boolean
+  keepTool: boolean
   precision: number
   createId: () => string
   tolerance: { mouse: number; touch: number }
 }
+
+// `crypto.randomUUID` only exists in secure contexts (https, localhost).
+const randomId = () =>
+  typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
 export const resolveOptions = (
   options: Omit<DrawOptions, 'value' | 'onChange' | 'enabled'>,
@@ -45,8 +52,9 @@ export const resolveOptions = (
   moveBy: options.moveBy ?? 'body',
   emptyTool: options.emptyTool,
   selectSingle: options.selectSingle ?? false,
+  keepTool: options.keepTool ?? false,
   precision: options.precision ?? 7,
-  createId: options.createId ?? (() => crypto.randomUUID()),
+  createId: options.createId ?? randomId,
   tolerance: { mouse: options.tolerance?.mouse ?? 10, touch: options.tolerance?.touch ?? 20 },
 })
 
@@ -153,7 +161,7 @@ const addFeature = (
   return {
     state: {
       ...state,
-      tool: 'select',
+      tool: ctx.options.keepTool ? state.tool : 'select',
       selectedId: feature.id,
       activeVertex: null,
       draft: null,

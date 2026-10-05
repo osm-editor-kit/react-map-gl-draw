@@ -91,6 +91,8 @@ export const DrawLayers = ({
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
     if (!enabled || !keyboard || event.defaultPrevented || isTyping(event.target)) return
+    // Cmd+Backspace and friends belong to the browser; a key during IME composition to the IME.
+    if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
     let handled = false
     run((state, ctx) => {
       const result = keyDown(state, event.key, ctx)

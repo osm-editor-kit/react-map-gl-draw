@@ -1,7 +1,7 @@
 import { useStore } from 'zustand'
 import type { DrawController } from './controller'
 import { createDrawHandlers } from './handlers'
-import { canAddShape, canDeleteShape } from './limits'
+import { canAddShape, canDeleteShape, shapeTypeOfTool } from './limits'
 import {
   cancelDraft,
   currentFeatures,
@@ -53,7 +53,9 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
     selectedId,
     isDrawing,
     hasActiveVertex,
-    canAdd: (type: DrawShapeType) => canAddShape(value, options.limits, type),
+    /** Whether the limits allow another shape of this type, or one drawn with this tool. */
+    canAdd: (type: DrawShapeType | 'freehand') =>
+      canAddShape(value, options.limits, shapeTypeOfTool(type)),
     canDeleteSelected: selectedId !== null && canDeleteShape(value, options.limits),
 
     setTool: (next: DrawTool) => {

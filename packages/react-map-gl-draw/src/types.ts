@@ -46,11 +46,17 @@ export type DrawOptions = {
   /**
    * `'body'`: pressing a polygon or point drags it. `'handle'`: the body only selects and a
    * separate move handle drags the shape. Lines always use the handle, because a press on a
-   * selected line inserts a corner. Default `'body'`.
+   * selected line inserts a corner. A point has no handle: with `'handle'` it moves when it is
+   * dragged while selected. Default `'body'`.
    */
   moveBy?: 'body' | 'handle'
   /** Tool that is armed while `value` is empty, so the first shape needs no button. */
   emptyTool?: Exclude<DrawTool, 'select'>
+  /**
+   * Keep a shape tool armed after a shape is added, e.g. to place several points in a row.
+   * Default `false`: the tool returns to `select` and the new shape is selected.
+   */
+  keepTool?: boolean
   /** Treat the only shape as selected, so its handles always show. */
   selectSingle?: boolean
   /** Decimals kept for coordinates. Default 7 (about 1 cm). */

@@ -240,6 +240,15 @@ describe('drawing a line and a point', () => {
     expect(s.effectiveTool()).toBe('select')
   })
 
+  it('keeps the tool armed with keepTool', () => {
+    const s = surface([], { keepTool: true })
+    s.tool('point')
+    s.click(100, 100)
+    s.click(300, 300)
+    expect(s.value).toHaveLength(2)
+    expect(s.effectiveTool()).toBe('point')
+  })
+
   it('draws a freehand line while the pointer is down', () => {
     const s = surface()
     s.tool('freehand')

@@ -31,15 +31,14 @@ export const featuresFromGeometry = (
 ) => {
   if (!geometry) return []
   const createId = options.createId ?? ((index: number) => `part-${index}`)
-  return partsOf(geometry).map(
-    (part, index) =>
-      ({
-        type: 'Feature',
-        id: createId(index),
-        geometry: part,
-        properties: options.properties ?? {},
-      }) satisfies DrawFeature,
-  )
+  // Annotated so the result is assignable wherever a `DrawFeature[]` state is expected.
+  const features: DrawFeature[] = partsOf(geometry).map((part, index) => ({
+    type: 'Feature',
+    id: createId(index),
+    geometry: part,
+    properties: options.properties ?? {},
+  }))
+  return features
 }
 
 /**

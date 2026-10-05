@@ -86,8 +86,8 @@ package; styles only set `paint` and `layout`. State reaches styles as feature p
 ### Stopping the map from panning
 
 A press that starts a drag of ours calls `event.preventDefault()` on the MapLibre event. This
-is MapLibre's documented way to keep its drag-pan handler out of a gesture, for mouse and for
-touch. No handler is disabled and re-enabled, so nothing can be left disabled by a missed
+is how MapLibre's own draggable-point example keeps the drag-pan handler out of a gesture, for
+mouse and for touch. No handler is disabled and re-enabled, so nothing can be left disabled by a missed
 release.
 
 A drag can end outside the canvas, where the map reports nothing. For the duration of a drag
@@ -104,7 +104,8 @@ map from panning. It is the only DOM element the package renders.
 
 - **Touch is unverified on devices.** The code handles single-finger gestures, ignores the
   mouse events browsers replay after a touch, and gives the gesture up when a second finger
-  arrives. It has been tested with unit tests only.
+  arrives. This is covered by unit tests and by a simulated touch drag in Chromium (the corner
+  moved, the map did not pan). No real phone or tablet has been used yet.
 - **Large shapes.** Hit-testing and render data are recomputed per pointer move over all
   corners of all shapes. This is fine for dozens of shapes with hundreds of corners; it is not
   built for thousands.

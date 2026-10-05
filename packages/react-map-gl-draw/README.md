@@ -17,8 +17,8 @@ Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
 **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
 
 > Status: `0.0.x`, not published to npm yet. The API may still change. Mouse input is exercised
-> on two drawing surfaces of [TILDA](https://tilda-geo.de); touch input is implemented but has
-> not been verified on real devices yet.
+> on two drawing surfaces of [TILDA](https://tilda-geo.de); touch input is implemented and passes a
+> simulated touch drag in Chromium, but has not been verified on real devices yet.
 
 ## Install
 
@@ -134,7 +134,8 @@ Also:
 - Backspace removes the last corner while drawing.
 - Delete removes the corner touched last, or the selected shape. A double click on a corner
   removes it too.
-- After a shape is finished the tool returns to `select` and the shape is selected.
+- After a shape is finished the tool returns to `select` and the shape is selected. Set
+  `keepTool` to stay in the tool, for example to place several points in a row.
 - With a shape tool armed, the body of an existing shape does not capture the press, so a new
   shape can start on top of an old one. Its corners and outline still edit.
 
@@ -149,6 +150,7 @@ useDraw(controller, {
   moveBy, // 'body' (default) | 'handle'
   emptyTool, // tool that is armed while value is empty
   selectSingle, // treat the only shape as selected. Default false.
+  keepTool, // keep a shape tool armed after adding a shape. Default false.
   precision, // decimals kept for coordinates. Default 7.
   createId, // id for a new shape. Default crypto.randomUUID().
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
@@ -191,18 +193,18 @@ The first click starts the shape without a toolbar button, and its handles alway
 
 ## Return value
 
-| Field                                      | Meaning                                                                                   |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `mapProps`                                 | Spread onto `<Map>`.                                                                      |
-| `tool`                                     | The tool in effect: the stored one, `emptyTool`, or `select` when the limits are reached. |
-| `selectedId`                               | Id of the selected shape, or `null`.                                                      |
-| `isDrawing`                                | A line or polygon is being drawn.                                                         |
-| `hasActiveVertex`                          | A corner was touched last; `deleteActiveVertex()` would remove it.                        |
-| `canAdd(type)`                             | Whether the limits allow another `'point'`, `'line'` or `'polygon'`.                      |
-| `canDeleteSelected`                        | A shape is selected and `limits.min` allows deleting it.                                  |
-| `setTool(tool)`, `select(id)`              | Change tool or selection.                                                                 |
-| `finish()`, `cancel()`                     | Finish or drop the shape being drawn.                                                     |
-| `deleteSelected()`, `deleteActiveVertex()` | Delete through `onChange`.                                                                |
+| Field                                      | Meaning                                                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `mapProps`                                 | Spread onto `<Map>`.                                                                                 |
+| `tool`                                     | The tool in effect: the stored one, `emptyTool`, or `select` when the limits are reached.            |
+| `selectedId`                               | Id of the selected shape, or `null`.                                                                 |
+| `isDrawing`                                | A line or polygon is being drawn.                                                                    |
+| `hasActiveVertex`                          | A corner was touched last; `deleteActiveVertex()` would remove it.                                   |
+| `canAdd(type)`                             | Whether the limits allow another `'point'`, `'line'` or `'polygon'` (`'freehand'` counts as a line). |
+| `canDeleteSelected`                        | A shape is selected and `limits.min` allows deleting it.                                             |
+| `setTool(tool)`, `select(id)`              | Change tool or selection.                                                                            |
+| `finish()`, `cancel()`                     | Finish or drop the shape being drawn.                                                                |
+| `deleteSelected()`, `deleteActiveVertex()` | Delete through `onChange`.                                                                           |
 
 `useDrawPreview(controller, value)` returns the shapes as they look right now, including a
 drag that has not been committed. Use it for a live readout (an area, a sum) while dragging.
