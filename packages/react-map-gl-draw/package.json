@@ -1,0 +1,68 @@
+{
+  "name": "@osm-editor-kit/react-map-gl-draw",
+  "version": "0.0.1",
+  "description": "Draw and edit points, lines and polygons on a react-map-gl (MapLibre) map as a controlled React component: value in, onChange out, styles as layer styles.",
+  "keywords": [
+    "draw",
+    "edit",
+    "geojson",
+    "maplibre",
+    "maplibre-gl",
+    "react",
+    "react-map-gl"
+  ],
+  "homepage": "https://osm-editor-kit.github.io/react-map-gl-draw/",
+  "bugs": {
+    "url": "https://github.com/osm-editor-kit/react-map-gl-draw/issues"
+  },
+  "license": "MIT",
+  "author": "Tobias Jordans",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/osm-editor-kit/react-map-gl-draw"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@types/geojson": "^7946.0.16",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "maplibre-gl": "^5.24.0",
+    "react": "^19.2.0",
+    "react-map-gl": "^8.1.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "maplibre-gl": ">=4",
+    "react": ">=19.2",
+    "react-map-gl": ">=8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
