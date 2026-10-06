@@ -269,3 +269,11 @@ body {
   gap: 6px;
   margin-top: 8px;
 }
+
+.toolbar .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}

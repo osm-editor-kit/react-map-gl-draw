@@ -5,6 +5,7 @@ import {
   type DrawTool,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
 import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
@@ -14,7 +15,8 @@ const tools = ['select', 'point', 'line', 'polygon', 'freehand'] satisfies DrawT
 
 const Basics = () => {
   const { value, onChange, createId } = useShapesParam()
-  const draw = useDraw(controller, { value, onChange, createId, closeLines: true })
+  const [closeLines, setCloseLines] = useState(true)
+  const draw = useDraw(controller, { value, onChange, createId, closeLines })
 
   return (
     <main className="page">
@@ -27,6 +29,14 @@ const Basics = () => {
         <span className="spacer" />
         {draw.isDrawing && <button onClick={draw.finish}>Finish</button>}
         {draw.isDrawing && <button onClick={draw.cancel}>Cancel</button>}
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={closeLines}
+            onChange={(event) => setCloseLines(event.target.checked)}
+          />
+          closeLines
+        </label>
         <button className="danger" disabled={!draw.canDeleteSelected} onClick={draw.deleteSelected}>
           Delete selected
         </button>
