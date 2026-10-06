@@ -43,7 +43,7 @@ jobs:
       - name: Add 404 fallback
         run: cp apps/preview/dist/index.html apps/preview/dist/404.html
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/preview/dist
 
