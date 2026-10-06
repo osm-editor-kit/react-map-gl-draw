@@ -1,5 +1,6 @@
 import {
   createDrawController,
+  defaultDrawStyles,
   DrawLayers,
   useDraw,
   type DrawFeature,
@@ -7,7 +8,7 @@ import {
   type DrawTool,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
-import type { ExpressionSpecification } from 'maplibre-gl'
+import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
 import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
@@ -54,50 +55,85 @@ const initialShapes: DrawFeature[] = [
   },
 ]
 
-// Shape in progress: pink. Selected: yellow. Otherwise the shape's own color, or purple.
-const shapeColor: ExpressionSpecification = [
-  'case',
-  ['==', ['get', 'role'], 'draft'],
-  '#db2777',
-  ['boolean', ['get', 'selected'], false],
-  '#eab308',
-  ['coalesce', ['get', 'color'], '#7c3aed'],
-]
+// The default theme of Mapbox GL Draw, rebuilt for the slots of this package: blue shapes,
+// orange for whatever is selected or being drawn, a dotted outline while active, small white
+// ringed handles. https://github.com/mapbox/mapbox-gl-draw/blob/main/src/lib/theme.js
+// It is plain JSON on purpose, so the page can show it and let you edit it.
+const blue = '#3bb2d0'
+const orange = '#fbb03b'
 
-// Each slot is merged over the defaults key by key, so only the differences are listed.
-const staticStyles = {
+// Mapbox GL Draw calls a selected feature "active"; here that is `selected`, or a draft.
+const isActive = ['any', ['==', ['get', 'role'], 'draft'], ['boolean', ['get', 'selected'], false]]
+// The shape's own `properties.color` wins over the theme's blue.
+const shapeColor = ['case', isActive, orange, ['coalesce', ['get', 'color'], blue]]
+
+const startStyles = {
+  fill: { paint: { 'fill-color': shapeColor, 'fill-opacity': 0.1 } },
   line: {
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': shapeColor,
-      'line-width': ['case', ['boolean', ['get', 'selected'], false], 5, 2],
+      'line-dasharray': ['case', isActive, ['literal', [0.2, 2]], ['literal', [2, 0]]],
+      'line-width': 2,
     },
   },
-  point: { paint: { 'circle-color': shapeColor, 'circle-radius': 9 } },
+  point: {
+    paint: {
+      'circle-radius': ['case', isActive, 5, 3],
+      'circle-color': shapeColor,
+      'circle-stroke-color': '#fff',
+      'circle-stroke-width': 2,
+    },
+  },
   vertex: {
     paint: {
-      'circle-color': ['case', ['boolean', ['get', 'active'], false], '#eab308', '#ffffff'],
-      'circle-stroke-color': '#111827',
+      'circle-radius': ['case', ['boolean', ['get', 'active'], false], 5, 3],
+      'circle-color': orange,
+      'circle-stroke-color': '#fff',
+      'circle-stroke-width': 2,
     },
   },
-  // `null` removes a layer: no "add a corner" handles here. Edges still take a press.
-  midpoint: null,
-} satisfies DrawStyles
-
-// Styles are plain objects, so state of the whole surface is an ordinary choice between two
-// of them: while a new shape is drawn, the existing ones fade.
-const whileDrawing = {
-  ...staticStyles,
-  fill: {
+  midpoint: {
     paint: {
-      'fill-color': shapeColor,
-      'fill-opacity': ['case', ['==', ['get', 'role'], 'draft'], 0.4, 0.05],
+      'circle-radius': 3,
+      'circle-color': orange,
+      'circle-opacity': 1,
+      'circle-stroke-width': 0,
     },
   },
-} satisfies DrawStyles
+}
+
+const startText = JSON.stringify(startStyles, null, 2)
+
+const parseStyles = (text: string) => {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { error: 'The styles must be one object with a key per slot.' }
+    }
+    // Not validated further: MapLibre reports what it cannot use, see the message below.
+    return { styles: parsed as DrawStyles }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'This is not valid JSON.' }
+  }
+}
 
 const CustomStyles = () => {
   const { value, onChange, createId } = useShapesParam(initialShapes)
   const draw = useDraw(controller, { value, onChange, createId })
+  const [text, setText] = useState(startText)
+  // The last text that could be read stays on the map while you type something broken.
+  const [applied, setApplied] = useState<DrawStyles>(startStyles as DrawStyles)
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [mapError, setMapError] = useState<string | null>(null)
+
+  const edit = (next: string) => {
+    setText(next)
+    setMapError(null)
+    const result = parseStyles(next)
+    setJsonError(result.error ?? null)
+    if (result.styles) setApplied(result.styles)
+  }
 
   return (
     <main className="page">
@@ -115,30 +151,63 @@ const CustomStyles = () => {
         </button>
       </div>
       <div className="map">
-        <DemoMap draw={draw}>
-          <DrawLayers draw={draw} styles={draw.isDrawing ? whileDrawing : staticStyles} />
+        <DemoMap draw={draw} onError={setMapError}>
+          <DrawLayers draw={draw} styles={applied} />
         </DemoMap>
       </div>
       <aside className="side">
         <h2>Custom styles</h2>
         <p>
-          <code>styles</code> takes MapLibre paint and layout per layer. State arrives as feature
-          properties, so expressions on <code>selected</code>, <code>active</code> and{' '}
-          <code>role</code> do the work.
+          <code>styles</code> takes MapLibre <code>paint</code> and <code>layout</code> per slot and
+          merges them over the defaults. The slots are <code>fill</code>, <code>line</code>,{' '}
+          <code>point</code>, <code>vertex</code>, <code>midpoint</code> and <code>snap</code>;{' '}
+          <code>null</code> removes one.
         </p>
         <ul>
           <li>
-            The left polygon carries <code>properties.color</code>, read with{' '}
-            <code>['get', 'color']</code>.
+            What a property accepts:{' '}
+            <a href="https://maplibre.org/maplibre-style-spec/layers/">
+              MapLibre style spec, layers
+            </a>{' '}
+            and <a href="https://maplibre.org/maplibre-style-spec/expressions/">expressions</a>.
           </li>
-          <li>Selected shapes turn yellow with a thicker outline.</li>
-          <li>The corner under the pointer or touched last is filled yellow.</li>
           <li>
-            The page picks between two style objects with <code>draw.isDrawing</code>: start a
-            polygon and the other shapes fade.
+            How they reach the map:{' '}
+            <a href="https://visgl.github.io/react-map-gl/docs/api-reference/maplibre/layer">
+              react-map-gl <code>Layer</code>
+            </a>
+            .
+          </li>
+          <li>
+            State arrives as feature properties: <code>role</code>, <code>selected</code>,{' '}
+            <code>active</code>, <code>closing</code>, plus the shape's own. The left polygon
+            carries <code>color: seagreen</code>.
           </li>
         </ul>
-        <pre>{JSON.stringify(value, null, 2)}</pre>
+
+        <h3>The styles on this map</h3>
+        <p>
+          This page wears the default theme of{' '}
+          <a href="https://github.com/mapbox/mapbox-gl-draw/blob/main/src/lib/theme.js">
+            Mapbox GL Draw
+          </a>
+          , rebuilt for the slots above. Edit the JSON; it applies as you type. Select a shape to
+          see its handles.
+        </p>
+        <textarea
+          className="code"
+          spellCheck={false}
+          value={text}
+          onChange={(event) => edit(event.target.value)}
+        />
+        {jsonError && <p className="error">JSON: {jsonError}</p>}
+        {mapError && <p className="error">MapLibre: {mapError}</p>}
+        <div className="row">
+          <button onClick={() => edit(startText)}>Reset to this page's styles</button>
+          <button onClick={() => edit(JSON.stringify(defaultDrawStyles, null, 2))}>
+            Load the package defaults
+          </button>
+        </div>
       </aside>
     </main>
   )

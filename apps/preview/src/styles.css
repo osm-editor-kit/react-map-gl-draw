@@ -241,3 +241,31 @@ body {
 .side .fields small {
   color: #6b7280;
 }
+
+.side textarea.code {
+  width: 100%;
+  min-height: 320px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #111827;
+  color: #e5e7eb;
+  font:
+    11px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  resize: vertical;
+}
+
+.side .error {
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.side .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
