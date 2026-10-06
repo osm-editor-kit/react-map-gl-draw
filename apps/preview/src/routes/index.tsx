@@ -43,6 +43,11 @@ const Basics = () => {
           gesture through <code>onChange</code>. Like every page here, this one keeps them in the
           URL, so the address bar is a link to what you drew.
         </p>
+        <p>
+          <code>onChange</code> fires once per finished gesture, so a drag is one URL update, not
+          one per mouse move. The compact text form of the <code>shapes</code> param is the
+          preview's own (<code>shapesParam.ts</code>).
+        </p>
         <ul>
           <li>
             Pick a tool, then click the map. Double click or Enter finishes a line or polygon.

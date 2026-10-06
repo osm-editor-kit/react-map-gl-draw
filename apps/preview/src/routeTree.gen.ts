@@ -15,7 +15,6 @@ import { Route as LimitsRouteImport } from './routes/limits'
 import { Route as MoveHandleRouteImport } from './routes/move-handle'
 import { Route as SinglePolygonRouteImport } from './routes/single-polygon'
 import { Route as SnapRouteImport } from './routes/snap'
-import { Route as UrlStateRouteImport } from './routes/url-state'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,11 +46,6 @@ const SnapRoute = SnapRouteImport.update({
   path: '/snap',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UrlStateRoute = UrlStateRouteImport.update({
-  id: '/url-state',
-  path: '/url-state',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,7 +54,6 @@ export interface FileRoutesByFullPath {
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
-  '/url-state': typeof UrlStateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -69,7 +62,6 @@ export interface FileRoutesByTo {
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
-  '/url-state': typeof UrlStateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -79,7 +71,6 @@ export interface FileRoutesById {
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
-  '/url-state': typeof UrlStateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -90,7 +81,6 @@ export interface FileRouteTypes {
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
-    | '/url-state'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -99,7 +89,6 @@ export interface FileRouteTypes {
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
-    | '/url-state'
   id:
     | '__root__'
     | '/'
@@ -108,7 +97,6 @@ export interface FileRouteTypes {
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
-    | '/url-state'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -118,7 +106,6 @@ export interface RootRouteChildren {
   MoveHandleRoute: typeof MoveHandleRoute
   SinglePolygonRoute: typeof SinglePolygonRoute
   SnapRoute: typeof SnapRoute
-  UrlStateRoute: typeof UrlStateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,13 +152,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SnapRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/url-state': {
-      id: '/url-state'
-      path: '/url-state'
-      fullPath: '/url-state'
-      preLoaderRoute: typeof UrlStateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -182,7 +162,6 @@ const rootRouteChildren: RootRouteChildren = {
   MoveHandleRoute: MoveHandleRoute,
   SinglePolygonRoute: SinglePolygonRoute,
   SnapRoute: SnapRoute,
-  UrlStateRoute: UrlStateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

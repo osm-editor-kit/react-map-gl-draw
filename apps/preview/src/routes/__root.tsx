@@ -3,7 +3,6 @@ import { createRootRoute, Link, Outlet } from '@tanstack/react-router'
 const pages = [
   { to: '/', label: 'Basics' },
   { to: '/single-polygon', label: 'Single polygon' },
-  { to: '/url-state', label: 'URL state' },
   { to: '/move-handle', label: 'Move handle' },
   { to: '/custom-styles', label: 'Custom styles' },
   { to: '/limits', label: 'Limits & multi-part' },
