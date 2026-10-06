@@ -9,7 +9,7 @@ type Props = { draw: DrawInstance; children: ReactNode }
 export const DemoMap = ({ draw, children }: Props) => (
   <Map
     initialViewState={BERLIN}
-    mapStyle="https://tiles.openfreemap.org/styles/liberty"
+    mapStyle="https://tiles.openfreemap.org/styles/positron"
     style={{ width: '100%', height: '100%' }}
     {...draw.mapProps}
   >

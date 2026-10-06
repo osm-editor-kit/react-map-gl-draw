@@ -1,6 +1,7 @@
 import {
   createDrawController,
   DrawLayers,
+  shapeTypeOf,
   useDraw,
   type DrawFeature,
 } from '@osm-editor-kit/react-map-gl-draw'
@@ -13,13 +14,13 @@ const controller = createDrawController()
 const initialShapes: DrawFeature[] = [
   {
     type: 'Feature',
-    id: 'point',
+    id: 's0',
     properties: {},
     geometry: { type: 'Point', coordinates: [13.4, 52.528] },
   },
   {
     type: 'Feature',
-    id: 'line',
+    id: 's1',
     properties: {},
     geometry: {
       type: 'LineString',
@@ -32,7 +33,7 @@ const initialShapes: DrawFeature[] = [
   },
   {
     type: 'Feature',
-    id: 'polygon',
+    id: 's2',
     properties: {},
     geometry: {
       type: 'Polygon',
@@ -50,13 +51,14 @@ const initialShapes: DrawFeature[] = [
 ]
 
 const MoveHandle = () => {
-  const [value, setValue, reset] = useShapesParam(initialShapes)
-  const draw = useDraw(controller, { value, onChange: setValue, moveBy: 'handle' })
+  const { value, onChange, createId, reset } = useShapesParam(initialShapes)
+  const draw = useDraw(controller, { value, onChange, createId, moveBy: 'handle' })
+  const selected = value.find((shape) => shape.id === draw.selectedId)
 
   return (
     <main className="page">
       <div className="toolbar">
-        <span>Selected: {draw.selectedId ?? 'nothing'}</span>
+        <span>Selected: {selected ? shapeTypeOf(selected.geometry) : 'nothing'}</span>
         <span className="spacer" />
         <button onClick={reset}>Reset</button>
       </div>

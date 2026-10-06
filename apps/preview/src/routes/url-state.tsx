@@ -13,10 +13,11 @@ const controller = createDrawController()
 const tools = ['select', 'point', 'line', 'polygon'] satisfies DrawTool[]
 
 const UrlState = () => {
-  const [shapes, setShapes] = useShapesParam()
+  const { value: shapes, onChange, createId } = useShapesParam()
   const draw = useDraw(controller, {
     value: shapes,
-    onChange: setShapes,
+    onChange,
+    createId,
     // Five decimals are about one meter and keep the URL short.
     precision: 5,
   })
@@ -44,9 +45,10 @@ const UrlState = () => {
       <aside className="side">
         <h2>URL state</h2>
         <p>
-          The shapes are the <code>shapes</code> search param; see <code>shapesParam.ts</code> for
-          the few lines that read and write it. <code>onChange</code> calls <code>navigate</code>{' '}
-          with <code>replace: true</code>. It fires once per finished gesture, so a drag is one URL
+          The shapes are the <code>shapes</code> search param, in a compact text form (
+          <code>l:13.39,52.52~13.4,52.53</code> is a line) that <code>shapesParam.ts</code> reads
+          and writes. <code>onChange</code> calls <code>navigate</code> with{' '}
+          <code>replace: true</code>. It fires once per finished gesture, so a drag is one URL
           update, not one per mouse move.
         </p>
         <p>Draw something, then reload or copy the URL into another tab.</p>

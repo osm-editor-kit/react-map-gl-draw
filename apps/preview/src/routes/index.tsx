@@ -13,8 +13,8 @@ const controller = createDrawController()
 const tools = ['select', 'point', 'line', 'polygon', 'freehand'] satisfies DrawTool[]
 
 const Basics = () => {
-  const [value, setValue] = useShapesParam()
-  const draw = useDraw(controller, { value, onChange: setValue })
+  const { value, onChange, createId } = useShapesParam()
+  const draw = useDraw(controller, { value, onChange, createId })
 
   return (
     <main className="page">

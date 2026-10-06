@@ -19,9 +19,10 @@ const tools = ['select', 'point', 'line', 'polygon'] satisfies DrawTool[]
 const initialShapes: DrawFeature[] = [
   {
     type: 'Feature',
-    id: 'green',
+    id: 's0',
     // Your own properties are passed through to the layers.
-    properties: { color: '#16a34a' },
+    // A named color, so it survives the compact URL form as it is.
+    properties: { color: 'seagreen' },
     geometry: {
       type: 'Polygon',
       coordinates: [
@@ -37,7 +38,7 @@ const initialShapes: DrawFeature[] = [
   },
   {
     type: 'Feature',
-    id: 'default',
+    id: 's1',
     properties: {},
     geometry: {
       type: 'Polygon',
@@ -96,8 +97,8 @@ const styles = ({ isDrawing }: DrawStyleState) =>
   }) satisfies DrawStyles
 
 const CustomStyles = () => {
-  const [value, setValue] = useShapesParam(initialShapes)
-  const draw = useDraw(controller, { value, onChange: setValue })
+  const { value, onChange, createId } = useShapesParam(initialShapes)
+  const draw = useDraw(controller, { value, onChange, createId })
 
   return (
     <main className="page">

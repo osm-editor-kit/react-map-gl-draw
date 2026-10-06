@@ -30,10 +30,11 @@ const formatArea = (squareMeters: number) =>
   `${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(squareMeters / 10_000)} ha`
 
 const SinglePolygon = () => {
-  const [value, setValue] = useShapesParam()
+  const { value, onChange, createId } = useShapesParam()
   const draw = useDraw(controller, {
     value,
-    onChange: setValue,
+    onChange,
+    createId,
     emptyTool: 'polygon',
     selectSingle: true,
     limits: { point: 0, line: 0 },

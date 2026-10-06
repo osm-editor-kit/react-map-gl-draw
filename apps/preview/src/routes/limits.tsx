@@ -36,14 +36,15 @@ const stored: MultiPolygon = {
   ],
 }
 
-const initialParts = featuresFromGeometry(stored)
+const initialParts = featuresFromGeometry(stored, { createId: (index) => `s${index}` })
 
 const Limits = () => {
   // Each part becomes one shape; `geometryFromFeatures` puts them back together.
-  const [value, setValue] = useShapesParam(initialParts)
+  const { value, onChange, createId } = useShapesParam(initialParts)
   const draw = useDraw(controller, {
     value,
-    onChange: setValue,
+    onChange,
+    createId,
     limits: { singleType: true, min: 1 },
   })
 
