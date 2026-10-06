@@ -7,7 +7,5 @@ dist/
 *.tsbuildinfo
 .DS_Store
 
-# data pipeline scratch
-packages/maplibre-editor-layer-index/.cache/
 coverage/
 .local/

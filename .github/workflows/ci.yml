@@ -36,5 +36,8 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Check exports (publint, attw)
+        run: bun run check-exports
+
       - name: Build preview
         run: bun run --filter preview build
