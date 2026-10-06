@@ -5,7 +5,6 @@ import type {
   FilterSpecification,
   LineLayerSpecification,
 } from 'maplibre-gl'
-import type { DrawTool } from './types'
 
 type SlotStyle<Layer extends { paint?: unknown; layout?: unknown }> = {
   paint?: Layer['paint']
@@ -33,10 +32,6 @@ export type DrawStyles = {
   /** Ring around the place a corner snaps to; see the `snap` option. */
   snap?: SlotStyle<CircleLayerSpecification> | null
 }
-
-export type DrawStyleState = { tool: DrawTool; isDrawing: boolean; hasSelection: boolean }
-
-export type DrawStylesInput = DrawStyles | ((state: DrawStyleState) => DrawStyles)
 
 const COLOR = '#2563eb'
 const ACTIVE_COLOR = '#ea580c'

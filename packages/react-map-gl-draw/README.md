@@ -154,10 +154,11 @@ useDraw(controller, {
   onChange, // (next, meta) => void; meta = { reason: 'add' | 'edit' | 'delete', featureId }
   enabled, // false turns interaction off and empties mapProps. Default true.
   limits, // see below
-  moveBy, // 'handle' | 'body', or one per type. Default: polygons 'handle', points 'body'.
+  moveBy, // { point, polygon }: 'handle' | 'body'. Default { point: 'body', polygon: 'handle' }.
   emptyTool, // tool that is armed while value is empty
   selectSingle, // treat the only shape as selected. Default false.
   keepTool, // keep a shape tool armed after adding a shape. Default false.
+  closeLines, // a line that ends on its first corner becomes a polygon. Default false.
   precision, // decimals kept for coordinates. Default 7.
   createId, // id for a new shape. Default crypto.randomUUID().
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
@@ -182,22 +183,31 @@ When a limit is reached, `draw.tool` falls back to `select` and `draw.canAdd(typ
 
 ### `moveBy`
 
-How a whole shape is moved.
+How a whole shape is moved, per type.
 
 - `'handle'`: only by the move handle that the selected shape shows. A press on the shape
   itself selects it and leaves the map free to pan.
 - `'body'`: by pressing the shape and dragging.
 
 ```ts
-moveBy: 'body' // points and polygons
-moveBy: { point: 'handle', polygon: 'body' } // per type
+moveBy: { point: 'body', polygon: 'handle' } // the defaults
 ```
 
-Defaults: polygons `'handle'`, points `'body'`. Moving a whole area is the rare case, its
-surface is large, and the handle says what it does. Lines always use the handle, because a
-press on a selected line inserts a corner.
+Moving a whole area is the rare case, its surface is large, and the handle says what it
+does. Lines always use the handle, because a press on a selected line inserts a corner.
 
 The handle sits inside a polygon, above the top corner of a line, and above a point.
+
+### `closeLines`
+
+With `closeLines: true`, a line that ends on its own first corner becomes a polygon:
+
+- while drawing a line with three or more corners, a click on its first corner,
+- while continuing a line, a click on its other end (the shape keeps its id),
+- a freehand stroke that is released where it started.
+
+The corner that closes the line is highlighted like the closing corner of a polygon. Leave
+the option off where a shape must keep its type.
 
 ### `snap`
 
@@ -206,8 +216,8 @@ street can be traced by hand, corner by corner.
 
 ```ts
 snap: {
-  sourceLayer: 'transportation', // every line layer of the style that draws this source layer
-  // or: layers: ['highway_minor', 'highway_major_inner'],
+  source: 'openmaptiles', // id of the map source; corners snap to all its line layers
+  sourceLayer: 'transportation', // for a vector source
   filter: ['in', ['get', 'class'], ['literal', ['primary', 'secondary', 'tertiary', 'minor']]],
   radius: 14, // px, the default
 }
@@ -297,13 +307,10 @@ State reaches the style as feature properties:
 />
 ```
 
-For state of the whole surface, `styles` may be a function:
+`styles` is always a plain object. For state of the whole surface, choose between objects:
 
 ```tsx
-<DrawLayers
-  draw={draw}
-  styles={({ isDrawing }) => ({ line: { paint: { 'line-width': isDrawing ? 2 : 3 } } })}
-/>
+<DrawLayers draw={draw} styles={draw.isDrawing ? stylesWhileDrawing : styles} />
 ```
 
 Other props: `id` (source id and layer id prefix, default `draw`), `beforeId`, `moveHandle`

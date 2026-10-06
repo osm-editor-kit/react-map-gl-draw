@@ -4,12 +4,7 @@ export { useDraw, useDrawPreview, type DrawInstance } from './useDraw'
 export { featuresFromGeometry, geometryFromFeatures } from './multi'
 export { canAddShape, canDeleteShape } from './limits'
 export { shapeTypeOf } from './geometry'
-export {
-  defaultDrawStyles,
-  type DrawStyles,
-  type DrawStylesInput,
-  type DrawStyleState,
-} from './styles'
+export { defaultDrawStyles, type DrawStyles } from './styles'
 export type { DrawRenderProperties } from './renderData'
 export type {
   DrawChangeMeta,

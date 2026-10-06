@@ -37,7 +37,9 @@ const noProject: Project = (position) => ({ x: position[0] ?? 0, y: position[1] 
 type MapLike = {
   project: (lngLat: [number, number]) => { x: number; y: number }
   getCanvas: () => unknown
-  getStyle: () => { layers: { id: string; type: string; 'source-layer'?: string }[] }
+  getStyle: () => {
+    layers: { id: string; type: string; source?: string; 'source-layer'?: string }[]
+  }
   queryRenderedFeatures: (
     box: [[number, number], [number, number]],
     options: { layers: string[]; filter?: FilterSpecification },
@@ -59,15 +61,17 @@ const DEFAULT_SNAP_RADIUS = 14
 /** The nearest place on the map's own lines, as configured by the `snap` option. */
 const snapPosition = (event: MapPointerEvent, snap: DrawSnap, project: Project) => {
   const map = event.target
-  const { sourceLayer } = snap
-  const layers =
-    snap.layers ??
-    (sourceLayer === undefined
-      ? []
-      : map
-          .getStyle()
-          .layers.filter((layer) => layer.type === 'line' && layer['source-layer'] === sourceLayer)
-          .map((layer) => layer.id))
+  // Every line layer the style draws from that source: one street is often several layers
+  // (casing, fill, bridge), and all of them are places to snap to.
+  const layers = map
+    .getStyle()
+    .layers.filter(
+      (layer) =>
+        layer.type === 'line' &&
+        layer.source === snap.source &&
+        (snap.sourceLayer === undefined || layer['source-layer'] === snap.sourceLayer),
+    )
+    .map((layer) => layer.id)
   if (layers.length === 0) return null
   const radius = snap.radius ?? DEFAULT_SNAP_RADIUS
   const { x, y } = event.point

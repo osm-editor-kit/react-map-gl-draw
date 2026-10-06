@@ -16,6 +16,7 @@ This is a Bun-workspaces monorepo:
 | [`packages/react-map-gl-draw`](packages/react-map-gl-draw) | The package (ESM-only).                               |
 | [`apps/preview`](apps/preview)                             | A TanStack Router + Vite demo, one page per use case. |
 | [`docs/architecture.md`](docs/architecture.md)             | How the package is built and why.                     |
+| [`docs/not-yet.md`](docs/not-yet.md)                       | What was left out on purpose.                         |
 
 ## Develop
 

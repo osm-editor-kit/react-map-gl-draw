@@ -52,11 +52,11 @@ export type DrawOptions = {
    *   itself selects it and leaves the map free to pan.
    * - `'body'`: by pressing the shape itself and dragging.
    *
-   * Give one value for both, or one per type. Defaults: polygons `'handle'`, since moving a
-   * whole area is rare and its surface is large; points `'body'`. Lines always use the handle,
-   * because a press on a selected line inserts a corner.
+   * Set per type. Defaults: polygons `'handle'`, since moving a whole area is rare and its
+   * surface is large; points `'body'`. Lines always use the handle, because a press on a
+   * selected line inserts a corner.
    */
-  moveBy?: DrawMoveBy | { point?: DrawMoveBy; polygon?: DrawMoveBy }
+  moveBy?: { point?: DrawMoveBy; polygon?: DrawMoveBy }
   /** Tool that is armed while `value` is empty, so the first shape needs no button. */
   emptyTool?: Exclude<DrawTool, 'select'>
   /**
@@ -64,6 +64,12 @@ export type DrawOptions = {
    * Default `false`: the tool returns to `select` and the new shape is selected.
    */
   keepTool?: boolean
+  /**
+   * A line that ends on its own first corner becomes a polygon: a click on the first corner
+   * while drawing or continuing a line, or a freehand stroke released where it started.
+   * Default `false`.
+   */
+  closeLines?: boolean
   /** Treat the only shape as selected, so its handles always show. */
   selectSingle?: boolean
   /** Decimals kept for coordinates. Default 7 (about 1 cm). */
@@ -79,9 +85,9 @@ export type DrawOptions = {
 }
 
 export type DrawSnap = {
-  /** Ids of the style layers to snap to. */
-  layers?: string[]
-  /** Or every line layer of the style that draws this source layer, e.g. `transportation`. */
+  /** Id of the map source whose lines corners snap to, e.g. the basemap's vector source. */
+  source: string
+  /** For a vector source: the source layer, e.g. `transportation`. */
   sourceLayer?: string
   /** Narrows the lines by their properties, e.g. only some road classes. */
   filter?: FilterSpecification
@@ -96,7 +102,8 @@ export type Project = (position: Position) => ScreenPoint
 export type VertexRef = { featureId: string; ring: number; index: number }
 
 export type Hit =
-  | { role: 'draft-vertex'; index: number; end: 'first' | 'last' | null }
+  /** `end: 'close'` is the corner that turns the line being drawn into a polygon. */
+  | { role: 'draft-vertex'; index: number; end: 'first' | 'last' | 'close' | null }
   | { role: 'vertex'; featureId: string; ring: number; index: number }
   /** `index` is where the new corner is inserted. */
   | { role: 'midpoint'; featureId: string; ring: number; index: number; position: Position }

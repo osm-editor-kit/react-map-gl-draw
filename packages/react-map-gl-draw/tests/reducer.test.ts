@@ -377,13 +377,6 @@ describe('editing', () => {
     expect(byHandle.selectedId()).toBe('p')
   })
 
-  it('applies a single moveBy value to points and polygons', () => {
-    const s = surface([square(), pointAt('p', 400, 400)], { moveBy: 'body' })
-    s.drag([150, 150], [250, 170])
-    s.drag([400, 400], [450, 450])
-    expect(s.commits).toHaveLength(2)
-  })
-
   it('never moves a line by its body: a press on a selected line inserts a corner', () => {
     const s = surface([line()])
     s.click(150, 100)
@@ -563,7 +556,7 @@ describe('review findings', () => {
   })
 
   it('commits nothing when the dragged shape was removed meanwhile', () => {
-    const s = surface([square(), square('b', 300)], { moveBy: 'body' })
+    const s = surface([square(), square('b', 300)], { moveBy: { polygon: 'body' } })
     s.down(150, 150)
     s.move(250, 170)
     s.value = [square('b', 300)]
@@ -720,5 +713,76 @@ describe('continuing a line', () => {
     s.click(400, 100)
     s.key('Enter')
     expect(coordinatesOf(s.value[0])).toHaveLength(4)
+  })
+})
+
+describe('closing a line into a polygon', () => {
+  it('turns a line into a polygon when it ends on its first corner', () => {
+    const s = surface([], { closeLines: true })
+    s.tool('line')
+    s.click(100, 100)
+    s.click(200, 100)
+    s.click(200, 200)
+    s.move(102, 101)
+    expect(s.cursor()).toBe('pointer')
+    s.click(102, 101)
+    expect(s.commits).toEqual([{ reason: 'add', featureId: 'new-1' }])
+    expect(s.value[0]?.geometry.type).toBe('Polygon')
+    expect(ringOf(s.value[0])).toHaveLength(4)
+  })
+
+  it('needs three corners first, and leaves lines alone without the option', () => {
+    const early = surface([], { closeLines: true })
+    early.tool('line')
+    early.click(100, 100)
+    early.click(200, 100)
+    early.click(100, 100)
+    expect(early.state.draft?.coordinates).toHaveLength(3)
+
+    const off = surface()
+    off.tool('line')
+    off.click(100, 100)
+    off.click(200, 100)
+    off.click(200, 200)
+    off.click(100, 100)
+    off.key('Enter')
+    expect(off.value[0]?.geometry.type).toBe('LineString')
+  })
+
+  it('closes a continued line on its far end and keeps its id', () => {
+    const s = surface([line()], { selectSingle: true, closeLines: true })
+    s.click(300, 100)
+    s.click(200, 250)
+    s.click(100, 100)
+    expect(s.commits).toEqual([{ reason: 'edit', featureId: 'l' }])
+    expect(s.value).toHaveLength(1)
+    expect(s.value[0]?.geometry.type).toBe('Polygon')
+    expect(ringOf(s.value[0])).toHaveLength(5)
+  })
+
+  it('turns a freehand stroke that returns to its start into a polygon', () => {
+    const s = surface([], { closeLines: true })
+    s.tool('freehand')
+    s.down(100, 100)
+    for (const [x, y] of [
+      [200, 100],
+      [200, 200],
+      [100, 200],
+      [103, 104],
+    ] as const) {
+      for (let step = 1; step <= 10; step++)
+        s.move(s.last.x + ((x - s.last.x) * step) / 10, s.last.y + ((y - s.last.y) * step) / 10)
+    }
+    s.up()
+    expect(s.value[0]?.geometry.type).toBe('Polygon')
+  })
+
+  it('keeps an open freehand stroke a line', () => {
+    const s = surface([], { closeLines: true })
+    s.tool('freehand')
+    s.down(100, 100)
+    for (let x = 110; x <= 300; x += 10) s.move(x, 100 + (x % 20 === 0 ? 30 : 0))
+    s.up()
+    expect(s.value[0]?.geometry.type).toBe('LineString')
   })
 })

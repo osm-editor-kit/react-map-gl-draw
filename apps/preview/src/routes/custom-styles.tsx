@@ -4,7 +4,6 @@ import {
   useDraw,
   type DrawFeature,
   type DrawStyles,
-  type DrawStyleState,
   type DrawTool,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
@@ -84,17 +83,17 @@ const staticStyles = {
   midpoint: null,
 } satisfies DrawStyles
 
-// The function form gets the drawing state: existing shapes fade while a new one is drawn.
-const styles = ({ isDrawing }: DrawStyleState) =>
-  ({
-    ...staticStyles,
-    fill: {
-      paint: {
-        'fill-color': shapeColor,
-        'fill-opacity': isDrawing ? ['case', ['==', ['get', 'role'], 'draft'], 0.4, 0.05] : 0.3,
-      },
+// Styles are plain objects, so state of the whole surface is an ordinary choice between two
+// of them: while a new shape is drawn, the existing ones fade.
+const whileDrawing = {
+  ...staticStyles,
+  fill: {
+    paint: {
+      'fill-color': shapeColor,
+      'fill-opacity': ['case', ['==', ['get', 'role'], 'draft'], 0.4, 0.05],
     },
-  }) satisfies DrawStyles
+  },
+} satisfies DrawStyles
 
 const CustomStyles = () => {
   const { value, onChange, createId } = useShapesParam(initialShapes)
@@ -117,7 +116,7 @@ const CustomStyles = () => {
       </div>
       <div className="map">
         <DemoMap draw={draw}>
-          <DrawLayers draw={draw} styles={styles} />
+          <DrawLayers draw={draw} styles={draw.isDrawing ? whileDrawing : staticStyles} />
         </DemoMap>
       </div>
       <aside className="side">
@@ -135,7 +134,8 @@ const CustomStyles = () => {
           <li>Selected shapes turn yellow with a thicker outline.</li>
           <li>The corner under the pointer or touched last is filled yellow.</li>
           <li>
-            <code>styles</code> is a function here: start a polygon and the other shapes fade.
+            The page picks between two style objects with <code>draw.isDrawing</code>: start a
+            polygon and the other shapes fade.
           </li>
         </ul>
         <pre>{JSON.stringify(value, null, 2)}</pre>

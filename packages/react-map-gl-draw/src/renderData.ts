@@ -1,5 +1,12 @@
 import type { Feature, FeatureCollection, Position } from 'geojson'
-import { interiorPointOf, midpointsOf, ringsOf, shapeTypeOf, topCornerOf } from './geometry'
+import {
+  interiorPointOf,
+  midpointsOf,
+  ringsOf,
+  samePosition,
+  shapeTypeOf,
+  topCornerOf,
+} from './geometry'
 import type { DrawFeature, DrawState } from './types'
 
 /**
@@ -28,7 +35,7 @@ const point = (coordinates: Position, properties: DrawRenderProperties) =>
     properties,
   }) satisfies RenderFeature
 
-const draftFeatures = (draft: NonNullable<DrawState['draft']>) => {
+const draftFeatures = (draft: NonNullable<DrawState['draft']>, closeTarget: Position | null) => {
   const features: RenderFeature[] = []
   const path = draft.cursor ? [...draft.coordinates, draft.cursor] : draft.coordinates
   const first = path[0]
@@ -55,10 +62,16 @@ const draftFeatures = (draft: NonNullable<DrawState['draft']>) => {
     features.push(
       point(position, {
         role: 'vertex',
-        closing: enough && (isLast || (isFirst && draft.type === 'polygon')),
+        closing:
+          (enough && (isLast || (isFirst && draft.type === 'polygon'))) ||
+          samePosition(position, closeTarget ?? undefined),
       }),
     )
   })
+  // A continued line closes on its far end, which is not one of the corners being drawn.
+  if (closeTarget && !draft.coordinates.some((position) => samePosition(position, closeTarget))) {
+    features.push(point(closeTarget, { role: 'vertex', closing: true }))
+  }
   return features
 }
 
@@ -70,6 +83,8 @@ export const buildRenderData = (
   value: DrawFeature[],
   state: Pick<DrawState, 'preview' | 'draft' | 'activeVertex' | 'hover' | 'gesture' | 'snap'>,
   selectedId: string | null,
+  /** See `closeTargetOf`; the corner that turns the line being drawn into a polygon. */
+  closeTarget: Position | null = null,
 ) => {
   const features: RenderFeature[] = []
   const shapes = state.preview ?? value
@@ -132,7 +147,7 @@ export const buildRenderData = (
     }
   }
 
-  if (state.draft) features.push(...draftFeatures(state.draft))
+  if (state.draft) features.push(...draftFeatures(state.draft, closeTarget))
   if (state.snap) {
     features.push(point(state.snap.position, { role: 'snap', junction: state.snap.junction }))
   }

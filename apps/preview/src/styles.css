@@ -213,3 +213,31 @@ body {
   padding-left: 0;
   columns: 2;
 }
+
+.side h3 {
+  margin: 16px 0 4px;
+  font-size: 14px;
+}
+
+.side .fields {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+
+.side .fields label {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.side .fields input {
+  padding: 5px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.side .fields small {
+  color: #6b7280;
+}

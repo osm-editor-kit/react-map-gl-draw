@@ -14,7 +14,7 @@ const tools = ['select', 'point', 'line', 'polygon', 'freehand'] satisfies DrawT
 
 const Basics = () => {
   const { value, onChange, createId } = useShapesParam()
-  const draw = useDraw(controller, { value, onChange, createId })
+  const draw = useDraw(controller, { value, onChange, createId, closeLines: true })
 
   return (
     <main className="page">
@@ -46,6 +46,10 @@ const Basics = () => {
         <ul>
           <li>
             Pick a tool, then click the map. Double click or Enter finishes a line or polygon.
+          </li>
+          <li>
+            With <code>closeLines</code>, a line that ends on its first corner becomes a polygon.
+            The same goes for a freehand stroke that returns to where it started.
           </li>
           <li>
             With select, click a shape to see its corners. Drag corners, midpoints or the shape.

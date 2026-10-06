@@ -23,9 +23,10 @@ const map = {
   getCanvas: () => canvas,
   getStyle: () => ({
     layers: [
-      { id: 'road-minor', type: 'line', 'source-layer': 'transportation' },
-      { id: 'road-label', type: 'symbol', 'source-layer': 'transportation' },
-      { id: 'water', type: 'line', 'source-layer': 'water' },
+      { id: 'road-minor', type: 'line', source: 'basemap', 'source-layer': 'transportation' },
+      { id: 'other-map', type: 'line', source: 'other', 'source-layer': 'transportation' },
+      { id: 'road-label', type: 'symbol', source: 'basemap', 'source-layer': 'transportation' },
+      { id: 'water', type: 'line', source: 'basemap', 'source-layer': 'water' },
     ],
   }),
   queryRenderedFeatures: (
@@ -329,7 +330,7 @@ describe('settling', () => {
 })
 
 describe('snapping to lines of the map', () => {
-  const snap = { sourceLayer: 'transportation' }
+  const snap = { source: 'basemap', sourceLayer: 'transportation' }
   const lineOf = (feature: DrawFeature | undefined) =>
     feature?.geometry.type === 'LineString' ? feature.geometry.coordinates : []
 
@@ -344,7 +345,7 @@ describe('snapping to lines of the map', () => {
     expect(lineOf(a.value[0])).toEqual([at(100, 300), at(400, 300)])
   })
 
-  it('asks only the line layers of the configured source layer', () => {
+  it('asks only the line layers of the configured source and source layer', () => {
     queries.length = 0
     const a = app([], { emptyTool: 'line', snap })
     a.handlers().onMouseMove(a.event(100, 308))
@@ -370,7 +371,7 @@ describe('snapping to lines of the map', () => {
     a.handlers().onMouseUp(a.event(260, 305))
     expect(ringOf(a.value[0])[2]).toEqual(at(260, 300))
 
-    const b = app([square], { snap, moveBy: 'body' })
+    const b = app([square], { snap, moveBy: { polygon: 'body' } })
     b.handlers().onMouseDown(b.event(150, 150))
     b.handlers().onMouseMove(b.event(150, 200))
     b.handlers().onMouseMove(b.event(150, 255))

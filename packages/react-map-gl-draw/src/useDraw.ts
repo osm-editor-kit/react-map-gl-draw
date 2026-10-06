@@ -78,7 +78,7 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
     },
 
     /** For `<DrawLayers draw={…}>`; not part of the public surface. */
-    internal: { controller, value, appValue, options, enabled, selectedId, tool, run },
+    internal: { controller, value, appValue, options, enabled, selectedId, run },
   }
 }
 

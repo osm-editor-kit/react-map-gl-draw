@@ -37,6 +37,7 @@ export type ResolvedOptions = {
   emptyTool: Exclude<DrawTool, 'select'> | undefined
   selectSingle: boolean
   keepTool: boolean
+  closeLines: boolean
   precision: number
   createId: () => string
   tolerance: { mouse: number; touch: number }
@@ -53,13 +54,13 @@ export const resolveOptions = (
 ): ResolvedOptions => ({
   limits: options.limits,
   moveBy: {
-    point: (typeof options.moveBy === 'string' ? options.moveBy : options.moveBy?.point) ?? 'body',
-    polygon:
-      (typeof options.moveBy === 'string' ? options.moveBy : options.moveBy?.polygon) ?? 'handle',
+    point: options.moveBy?.point ?? 'body',
+    polygon: options.moveBy?.polygon ?? 'handle',
   },
   emptyTool: options.emptyTool,
   selectSingle: options.selectSingle ?? false,
   keepTool: options.keepTool ?? false,
+  closeLines: options.closeLines ?? false,
   precision: options.precision ?? 7,
   createId: options.createId ?? randomId,
   tolerance: { mouse: options.tolerance?.mouse ?? 10, touch: options.tolerance?.touch ?? 20 },
@@ -153,7 +154,9 @@ export const movesByBody = (feature: DrawFeature, options: ResolvedOptions) => {
 const sameHit = (a: Hit | null, b: Hit | null) => {
   if (a === null || b === null) return a === b
   if (a.role !== b.role) return false
-  if (a.role === 'draft-vertex' && b.role === 'draft-vertex') return a.index === b.index
+  if (a.role === 'draft-vertex' && b.role === 'draft-vertex') {
+    return a.index === b.index && a.end === b.end
+  }
   if (a.role === 'body' && b.role === 'body') return a.featureId === b.featureId
   if (a.role === 'draft-vertex' || b.role === 'draft-vertex') return false
   if (a.role === 'body' || b.role === 'body') return false
@@ -215,6 +218,66 @@ export const finishDraft = (state: DrawState, ctx: ReduceContext): ReduceResult 
       ? rewindPolygon({ type: 'Polygon', coordinates: [[...coordinates, first]] })
       : { type: 'LineString', coordinates }
   return addFeature(state, geometry, ctx)
+}
+
+/**
+ * With `closeLines`: the corner a line being drawn has to end on to become a polygon. For a
+ * new line that is its first corner, for a continued line the far end of that line.
+ */
+export const closeTargetOf = (
+  draft: Draft | null,
+  value: DrawFeature[],
+  options: ResolvedOptions,
+) => {
+  if (!options.closeLines || draft?.type !== 'line') return null
+  if (!draft.extend) return draft.coordinates.length >= 3 ? (draft.coordinates[0] ?? null) : null
+  const { featureId, end } = draft.extend
+  const line = value.find((feature) => feature.id === featureId)
+  if (line?.geometry.type !== 'LineString') return null
+  const existing = line.geometry.coordinates
+  if (existing.length + draft.coordinates.length - 1 < 3) return null
+  return (end === 'end' ? existing[0] : existing.at(-1)) ?? null
+}
+
+const isOnCloseTarget = (
+  draft: Draft,
+  point: ScreenPoint,
+  pointerType: PointerInput['pointerType'],
+  ctx: ReduceContext,
+) => {
+  const target = closeTargetOf(draft, ctx.value, ctx.options)
+  return (
+    target !== null && distance(ctx.project(target), point) <= ctx.options.tolerance[pointerType]
+  )
+}
+
+/** Turns the line being drawn, or the line being continued, into a polygon. */
+const closeAsPolygon = (state: DrawState, ctx: ReduceContext): ReduceResult => {
+  const draft = state.draft
+  if (!draft) return { state }
+  const done = { ...state, draft: null, gesture: null, preview: null, hover: null, lastTap: null }
+  const drawn = draft.coordinates.filter(
+    (position, index, all) => !samePosition(position, all[index - 1]),
+  )
+  const ringOf = (corners: Position[]): DrawGeometry => {
+    const first = corners[0]
+    return rewindPolygon({ type: 'Polygon', coordinates: [first ? [...corners, first] : corners] })
+  }
+  if (!draft.extend) return addFeature(done, ringOf(drawn), ctx)
+
+  const { featureId, end } = draft.extend
+  const line = ctx.value.find((feature) => feature.id === featureId)
+  if (line?.geometry.type !== 'LineString') return { state: done }
+  const existing = line.geometry.coordinates
+  const added = drawn.slice(1)
+  const corners = end === 'end' ? [...existing, ...added] : [...added.toReversed(), ...existing]
+  return {
+    state: { ...done, selectedId: line.id, activeVertex: null },
+    commit: {
+      features: updateFeature(ctx.value, line.id, () => ringOf(corners)),
+      meta: { reason: 'edit', featureId: line.id },
+    },
+  }
 }
 
 /** Adds the corners drawn from one end of a line to that line. */
@@ -401,7 +464,9 @@ const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): R
       state: {
         ...state,
         draft: { ...state.draft, cursor: roundPosition(input.lngLat, options.precision) },
-        hover: hitTestDraft(state.draft, input.point, project, tolerance),
+        hover: isOnCloseTarget(state.draft, input.point, input.pointerType, ctx)
+          ? { role: 'draft-vertex', index: 0, end: 'close' }
+          : hitTestDraft(state.draft, input.point, project, tolerance),
         snap: snapOf(input),
       },
     }
@@ -529,7 +594,23 @@ const finishFreehand = (state: DrawState, ctx: ReduceContext): ReduceResult => {
     const position = draft.coordinates[index]
     return position ? [position] : []
   })
-  const finished = finishDraft({ ...dropped, draft: { ...draft, coordinates } }, ctx)
+  const simplified = { ...dropped, draft: { ...draft, coordinates } }
+  // A stroke that comes back to where it started is an area.
+  const first = coordinates[0]
+  const last = coordinates.at(-1)
+  const loops =
+    ctx.options.closeLines &&
+    coordinates.length >= 4 &&
+    first !== undefined &&
+    last !== undefined &&
+    distance(ctx.project(first), ctx.project(last)) <= ctx.options.tolerance.touch
+  if (loops) {
+    return closeAsPolygon(
+      { ...simplified, draft: { ...draft, type: 'line', coordinates: coordinates.slice(0, -1) } },
+      ctx,
+    )
+  }
+  const finished = finishDraft(simplified, ctx)
   // A stroke too short to be a line is dropped, not kept as a draft.
   return finished.commit ? finished : { state: dropped }
 }
@@ -549,6 +630,8 @@ const click = (
   if (state.draft) {
     const draft = state.draft
     const onDraft = hitTestDraft(draft, start.point, project, options.tolerance[start.pointerType])
+    if (isOnCloseTarget(draft, start.point, start.pointerType, ctx))
+      return closeAsPolygon(state, ctx)
     // An extension that has no corner of its own yet: a second click on the end it started
     // from takes it back. A quick second click is the double click that removes the corner.
     if (draft.extend && draft.coordinates.length === 1 && onDraft) {
@@ -779,6 +862,7 @@ export const cursorFor = (state: DrawState, value: DrawFeature[], options: Resol
     const closing =
       state.hover?.role === 'draft-vertex' &&
       (state.hover.end === 'last' ||
+        state.hover.end === 'close' ||
         (state.hover.end === 'first' && state.draft.type === 'polygon'))
     return closing ? 'pointer' : 'crosshair'
   }

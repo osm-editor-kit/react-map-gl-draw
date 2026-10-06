@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
 import { Layer, Marker, Source, type LayerProps, type MarkerDragEvent } from 'react-map-gl/maplibre'
 import { useStore } from 'zustand'
 import {
+  closeTargetOf,
   handleDrag,
   handleDragStart,
   keyDown,
@@ -10,14 +11,14 @@ import {
   sameFeatures,
 } from './reducer'
 import { buildRenderData, moveHandleAnchor } from './renderData'
-import { resolveSlotStyle, slotFilters, slotOrder, slotTypes, type DrawStylesInput } from './styles'
+import { resolveSlotStyle, slotFilters, slotOrder, slotTypes, type DrawStyles } from './styles'
 import type { DrawInstance } from './useDraw'
 
 type Props = {
   draw: DrawInstance
   /** Source id and prefix of the layer ids (`draw-fill`, `draw-line`, …). Default `draw`. */
   id?: string
-  styles?: DrawStylesInput
+  styles?: DrawStyles
   /** Insert the layers below this layer id. */
   beforeId?: string
   /** Content of the move handle. Default: a round button with a move icon. */
@@ -75,7 +76,7 @@ export const DrawLayers = ({
   moveHandle,
   keyboard = true,
 }: Props) => {
-  const { controller, value, appValue, options, enabled, selectedId, tool, run } = draw.internal
+  const { controller, value, appValue, options, enabled, selectedId, run } = draw.internal
   const { store } = controller
   const preview = useStore(store, (state) => state.preview)
   const draft = useStore(store, (state) => state.draft)
@@ -85,6 +86,8 @@ export const DrawLayers = ({
   const snap = useStore(store, (state) => state.snap)
   const draggingCorner = gesture?.kind === 'vertex'
 
+  const closeTarget = closeTargetOf(draft, value, options)
+
   const data = useMemo(
     () =>
       buildRenderData(
@@ -92,9 +95,21 @@ export const DrawLayers = ({
         // Only the kind of gesture matters for rendering, not each step of it.
         { preview, draft, activeVertex, hover, snap, gesture: draggingCorner ? gesture : null },
         enabled ? selectedId : null,
+        closeTarget,
       ),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `gesture` is covered by `draggingCorner`
-    [value, preview, draft, activeVertex, hover, snap, draggingCorner, enabled, selectedId],
+    [
+      value,
+      preview,
+      draft,
+      activeVertex,
+      hover,
+      snap,
+      draggingCorner,
+      enabled,
+      selectedId,
+      closeTarget,
+    ],
   )
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -142,11 +157,6 @@ export const DrawLayers = ({
     [controller],
   )
 
-  const resolvedStyles =
-    typeof styles === 'function'
-      ? styles({ tool, isDrawing: draft !== null, hasSelection: selectedId !== null })
-      : styles
-
   const shapes = preview ?? value
   const selected = enabled && !draft ? shapes.find((shape) => shape.id === selectedId) : undefined
   const anchor = selected ? moveHandleAnchor(selected) : null
@@ -157,7 +167,7 @@ export const DrawLayers = ({
     <>
       <Source id={id} type="geojson" data={data} />
       {slotOrder.map((slot) => {
-        const style = resolveSlotStyle(slot, resolvedStyles)
+        const style = resolveSlotStyle(slot, styles)
         if (!style) return null
         const layer = {
           id: `${id}-${slot}`,
