@@ -14,7 +14,7 @@ import {
 } from '../src/geometry'
 import { canAddShape, canDeleteShape } from '../src/limits'
 import { featuresFromGeometry, geometryFromFeatures } from '../src/multi'
-import { buildRenderData } from '../src/renderData'
+import { buildRenderData, moveHandleAnchor } from '../src/renderData'
 import type { DrawFeature, DrawGeometry } from '../src/types'
 
 const triangle = {
@@ -264,5 +264,95 @@ describe('render data', () => {
     const data = buildRenderData([], { ...idle, draft }, null)
     expect(data.features[0]?.geometry.type).toBe('Polygon')
     expect(data.features.slice(1).map((f) => f.properties.closing)).toEqual([true, false, true])
+  })
+})
+
+describe('move handle position', () => {
+  it('sits on the centroid of a convex polygon', () => {
+    const square = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4],
+          [0, 0],
+        ],
+      ],
+    } satisfies DrawGeometry
+    expect(moveHandleAnchor(feature('a', square))).toEqual({
+      longitude: 2,
+      latitude: 2,
+      placement: 'inside',
+    })
+  })
+
+  it('stays inside a U-shaped polygon whose centroid is outside', () => {
+    const u = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [9, 0],
+          [9, 9],
+          [6, 9],
+          [6, 3],
+          [3, 3],
+          [3, 9],
+          [0, 9],
+          [0, 0],
+        ],
+      ],
+    } satisfies DrawGeometry
+    const anchor = moveHandleAnchor(feature('u', u))
+    expect(anchor?.placement).toBe('inside')
+    // In one of the two arms, not in the gap between them.
+    expect(anchor!.longitude < 3 || anchor!.longitude > 6).toBe(true)
+  })
+
+  it('avoids a hole that contains the centroid', () => {
+    const anchor = moveHandleAnchor(
+      feature('h', {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0],
+          ],
+          [
+            [3, 3],
+            [3, 7],
+            [7, 7],
+            [7, 3],
+            [3, 3],
+          ],
+        ],
+      }),
+    )
+    expect(anchor!.longitude < 3 || anchor!.longitude > 7).toBe(true)
+  })
+
+  it('sits above the top corner of a line', () => {
+    const line = {
+      type: 'LineString',
+      coordinates: [
+        [0, 5],
+        [2, 0],
+        [4, 8],
+      ],
+    } satisfies DrawGeometry
+    expect(moveHandleAnchor(feature('l', line))).toEqual({
+      longitude: 4,
+      latitude: 8,
+      placement: 'above',
+    })
+  })
+
+  it('has no position for a shape without corners', () => {
+    expect(moveHandleAnchor(feature('e', { type: 'LineString', coordinates: [] }))).toBeNull()
   })
 })

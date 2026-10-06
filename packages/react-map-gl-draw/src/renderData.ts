@@ -1,5 +1,5 @@
 import type { Feature, FeatureCollection, Position } from 'geojson'
-import { bboxOf, midpointsOf, ringsOf, shapeTypeOf } from './geometry'
+import { interiorPointOf, midpointsOf, ringsOf, shapeTypeOf, topCornerOf } from './geometry'
 import type { DrawFeature, DrawState } from './types'
 
 /**
@@ -133,10 +133,21 @@ export const buildRenderData = (
   return { type: 'FeatureCollection', features } satisfies FeatureCollection
 }
 
-/** Where the move handle sits: above the middle of the shape's bounding box. */
+/**
+ * Where the move handle sits. It must stay clear of the corners, midpoints and outline, which
+ * have their own meaning when pressed.
+ * - Polygon: inside it, where a press does nothing else while `moveBy` is `'handle'`.
+ * - Line: above its top corner. A point on the line would cover the place where a press
+ *   inserts a corner, and the centre of a bent line lies off the line altogether.
+ */
 export const moveHandleAnchor = (shape: DrawFeature) => {
-  const [minLng, , maxLng, maxLat] = bboxOf(shape.geometry)
-  const anchor = { longitude: (minLng + maxLng) / 2, latitude: maxLat }
-  // A shape without corners has no bounding box.
-  return Number.isFinite(anchor.longitude) && Number.isFinite(anchor.latitude) ? anchor : null
+  const inside = interiorPointOf(shape.geometry)
+  const position = inside ?? topCornerOf(shape.geometry)
+  const [longitude, latitude] = position ?? []
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null
+  return {
+    longitude: longitude ?? 0,
+    latitude: latitude ?? 0,
+    placement: inside ? ('inside' as const) : ('above' as const),
+  }
 }

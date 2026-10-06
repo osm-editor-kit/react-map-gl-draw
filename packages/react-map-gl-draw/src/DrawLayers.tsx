@@ -170,9 +170,11 @@ export const DrawLayers = ({
       })}
       {showMoveHandle && (
         <Marker
-          {...anchor}
-          anchor="bottom"
-          offset={[0, -14]}
+          longitude={anchor.longitude}
+          latitude={anchor.latitude}
+          // Above a corner the handle keeps its distance; inside a polygon it sits on the spot.
+          anchor={anchor.placement === 'above' ? 'bottom' : 'center'}
+          offset={anchor.placement === 'above' ? [0, -14] : [0, 0]}
           draggable
           onDragStart={(event: MarkerDragEvent) =>
             run((state) =>

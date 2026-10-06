@@ -274,3 +274,68 @@ export const updateFeature = (
   features.map((feature) =>
     feature.id === featureId ? { ...feature, geometry: update(feature.geometry) } : feature,
   )
+
+const toXY = (position: Position) => ({ x: position[0] ?? 0, y: position[1] ?? 0 })
+
+/**
+ * A point inside a polygon, for placing something on it: the centroid when it lies inside,
+ * otherwise the middle of the widest stretch of polygon at the centroid's latitude (a C or U
+ * shape has its centroid outside). `null` for a polygon without area.
+ */
+export const interiorPointOf = (geometry: DrawGeometry) => {
+  if (geometry.type !== 'Polygon') return null
+  const rings = ringsOf(geometry)
+  const outer = rings[0]
+  const area2 = outer ? signedArea2(outer) : 0
+  if (!outer || area2 === 0) return null
+
+  let cx = 0
+  let cy = 0
+  for (let i = 0; i < outer.length; i++) {
+    const a = toXY(outer[i] ?? [])
+    const b = toXY(outer[(i + 1) % outer.length] ?? [])
+    const cross = a.x * b.y - b.x * a.y
+    cx += (a.x + b.x) * cross
+    cy += (a.y + b.y) * cross
+  }
+  const centroid = { x: cx / (3 * area2), y: cy / (3 * area2) }
+
+  const [outerXY, ...holesXY] = rings.map((ring) => ring.map(toXY))
+  const inside =
+    outerXY !== undefined &&
+    pointInRing(centroid, outerXY) &&
+    !holesXY.some((hole) => pointInRing(centroid, hole))
+  if (inside) return [centroid.x, centroid.y] satisfies Position
+
+  // Where the horizontal line through the centroid crosses the rings; between an odd and the
+  // next even crossing it runs inside the polygon.
+  const crossings: number[] = []
+  for (const ring of rings) {
+    for (const { a, b } of segmentsOf(ring, true)) {
+      const p = toXY(a)
+      const q = toXY(b)
+      if (p.y > centroid.y !== q.y > centroid.y) {
+        crossings.push(p.x + ((centroid.y - p.y) / (q.y - p.y)) * (q.x - p.x))
+      }
+    }
+  }
+  crossings.sort((x1, x2) => x1 - x2)
+  let widest: { from: number; to: number } | null = null
+  for (let i = 0; i + 1 < crossings.length; i += 2) {
+    const from = crossings[i] ?? 0
+    const to = crossings[i + 1] ?? 0
+    if (!widest || to - from > widest.to - widest.from) widest = { from, to }
+  }
+  return widest ? ([(widest.from + widest.to) / 2, centroid.y] satisfies Position) : null
+}
+
+/** The northernmost corner; on a north-up map it is the one nearest the top of the screen. */
+export const topCornerOf = (geometry: DrawGeometry) => {
+  let top: Position | null = null
+  for (const ring of ringsOf(geometry)) {
+    for (const position of ring) {
+      if (!top || (position[1] ?? 0) > (top[1] ?? 0)) top = position
+    }
+  }
+  return top
+}
