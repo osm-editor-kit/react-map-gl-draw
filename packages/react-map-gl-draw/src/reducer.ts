@@ -625,11 +625,12 @@ export const pointerUp = (
     }
 
     case 'vertex': {
-      if (gesture.moved || gesture.source === 'midpoint') {
+      // A press on a midpoint or on the outline has already inserted a corner. It stays, moved
+      // or not: the cursor announces it, and a corner on a straight stretch changes nothing
+      // about the shape until it is dragged.
+      if (gesture.moved || gesture.source !== 'vertex') {
         return commitPreview(state, gesture.ref.featureId, ctx)
       }
-      // A press on a line that did not move adds nothing.
-      if (gesture.source === 'edge') return { state: { ...cleared, activeVertex: null } }
       // Double tap on a corner removes it.
       const { start, ref } = gesture
       const target = `${ref.featureId}/${ref.ring}/${ref.index}`

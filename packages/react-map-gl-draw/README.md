@@ -122,15 +122,15 @@ they should not react.
 The only stored choice is the **tool**: `select`, `point`, `line`, `polygon` or `freehand`.
 It decides what a press on empty map does. What is under the pointer comes first:
 
-| Under the pointer                                                 | Result                                    |
-| ----------------------------------------------------------------- | ----------------------------------------- |
-| First or last corner of the shape being drawn                     | Finish the shape                          |
-| Corner of the selected shape                                      | Drag the corner                           |
-| Midpoint handle, or anywhere on the outline of the selected shape | Insert a corner and drag it               |
-| Body of a shape                                                   | Select it; drag it if `moveBy` allows     |
-| Empty map while drawing                                           | Add a corner                              |
-| Empty map with a shape tool                                       | Start a shape (a point is placed at once) |
-| Empty map with `select`                                           | Deselect; the map pans                    |
+| Under the pointer                                                 | Result                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------ |
+| First or last corner of the shape being drawn                     | Finish the shape                                 |
+| Corner of the selected shape                                      | Drag the corner                                  |
+| Midpoint handle, or anywhere on the outline of the selected shape | Insert a corner; keep the button down to drag it |
+| Body of a shape                                                   | Select it; drag it if `moveBy` allows            |
+| Empty map while drawing                                           | Add a corner                                     |
+| Empty map with a shape tool                                       | Start a shape (a point is placed at once)        |
+| Empty map with `select`                                           | Deselect; the map pans                           |
 
 Also:
 

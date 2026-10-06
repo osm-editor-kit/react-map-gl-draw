@@ -332,11 +332,21 @@ describe('editing', () => {
     expect(ringOf(s.value[0])[1]).toEqual(at(120, 70))
   })
 
-  it('adds nothing when the outline is only clicked', () => {
+  it('inserts a corner where the outline is clicked, ready to be dragged next', () => {
     const s = surface([square()], { selectSingle: true })
     s.click(120, 100)
-    expect(s.commits).toEqual([])
-    expect(s.state.preview).toBeNull()
+    expect(s.commits).toEqual([{ reason: 'edit', featureId: 'a' }])
+    expect(ringOf(s.value[0])[1]).toEqual(at(120, 100))
+    s.drag([120, 100], [120, 60])
+    expect(ringOf(s.value[0])).toHaveLength(6)
+    expect(ringOf(s.value[0])[1]).toEqual(at(120, 60))
+  })
+
+  it('removes a corner that was just clicked in with Delete', () => {
+    const s = surface([square()], { selectSingle: true })
+    s.click(120, 100)
+    s.key('Delete')
+    expect(ringOf(s.value[0])).toHaveLength(5)
   })
 
   it('selects and moves a polygon with one press when moveBy is body', () => {
