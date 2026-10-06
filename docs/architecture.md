@@ -64,18 +64,52 @@ click that MapLibre fires after a drag, and the two clicks that precede a double
 
 ### Hit-testing in screen space, not `interactiveLayerIds`
 
-react-map-gl can deliver the features under the pointer for layers listed in
-`interactiveLayerIds`. The package does not use this for its own shapes:
+This is the one place where the package does not use a react-map-gl primitive, so the reasons
+are spelled out.
 
-- react-map-gl answers `mousedown` from a hover cache filled on the last `mousemove`. A handle
-  that appeared under a resting pointer (after a click selected the shape) is not in it.
-- Rendered-feature queries see the source as of the last render. After `setData` the worker
-  re-tiles asynchronously, so the answer can lag behind the state.
-- A pixel tolerance needs either invisible, wider hit layers or a bounding-box query.
-- A pure function of `(shapes, point, project, tolerance)` can be unit-tested without a map.
+**The react-map-gl way.** List layer ids in `interactiveLayerIds`, read `event.features` in the
+pointer handlers, and add an invisible, wider layer where a larger hit area is wanted. That
+pattern is right for an app's data layers and we use it there.
 
-`interactiveLayerIds` remains the right tool for the app's own layers, and for a future
-"snap to these layers" option.
+**What the package does instead.** On every pointer event it takes the shapes from `value`,
+converts their corners to screen pixels with `map.project()`, and measures pixel distances:
+corner, then midpoint, then the outline of the selected shape, then "inside the polygon". This
+is the pure function `hitTest(shapes, point, project, tolerance)` in `hitTest.ts`.
+
+**Why.** In order of weight:
+
+1. **The answer must match the state, not the last render.** An editor changes its own data on
+   almost every event, and the next event must see that change.
+   - react-map-gl answers `mousedown` from a hover cache it filled on the last `mousemove`
+     (`this._hoveredFeatures || this._queryRenderedFeatures(e.point)` in
+     `@vis.gl/react-maplibre`). A click selects a shape, its handles appear under the resting
+     pointer, and the next press does not see them.
+   - Calling `queryRenderedFeatures` ourselves would avoid that cache, but it reads what
+     MapLibre has rendered. After a GeoJSON source is updated, the worker re-tiles it
+     asynchronously, so for a short time the query answers for the previous data. (This is
+     how MapLibre works by design; we did not measure how long the gap is.)
+2. **It can be tested without a map.** Whole gestures run through the reducer in unit tests
+   with a fake projection. With rendered-feature queries, every interaction test would need a
+   real MapLibre instance and WebGL.
+3. **Styles cannot break interaction.** The draw layers are only visual. An app can restyle
+   or remove any of them, and what can be grabbed stays the same.
+4. **Tolerance is a number.** Mouse and touch get different hit distances without extra
+   layers. This is a convenience, not the reason: invisible hit layers would have worked for
+   this point.
+
+**Performance.** Not a reason, and at scale a cost. A rendered-feature query uses MapLibre's
+spatial index. Our hit-test projects every corner of every shape on each pointer move, with no
+bounding-box cull. For a drawing tool (dozens of shapes, hundreds of corners) that is far below
+a millisecond. It is not built for thousands of shapes; an app with that much data should
+render it as its own layer and hand only the shape being edited to this package.
+
+**What we give up.** Hit areas follow the geometry, not the rendered style: a line drawn 20 px
+wide is still grabbed within the tolerance of its centre line. Shapes are hit in list order
+(last on top), not in layer order.
+
+**Where `interactiveLayerIds` still belongs.** For the app's own layers next to the drawing,
+and for a future "snap to these layers" option, where `event.features` is exactly the list of
+snap targets.
 
 ### Declarative layers
 

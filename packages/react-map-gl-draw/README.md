@@ -108,9 +108,14 @@ const { cursor, onMouseMove, ...drawProps } = draw.mapProps
 />
 ```
 
-Drawing does not use `interactiveLayerIds`; it hit-tests its own shapes in screen space, so
-its tolerance does not depend on the rendered layers. Pass an empty `interactiveLayerIds`
-while drawing if your own layers should not react.
+Drawing does not use `interactiveLayerIds` or invisible hit layers for its own shapes. It
+hit-tests them in screen space from `value`, because an editor needs an answer that matches
+its state right now: react-map-gl answers a press from a hover cache, and rendered-feature
+queries lag behind a source update. It is not a performance choice. The full reasoning is in
+[docs/architecture.md](../../docs/architecture.md#hit-testing-in-screen-space-not-interactivelayerids).
+
+Keep using `interactiveLayerIds` for your own layers, and pass an empty list while drawing if
+they should not react.
 
 ## Gestures
 
