@@ -81,15 +81,15 @@ export const defaultDrawStyles = {
       'circle-stroke-width': 2.5,
     },
   },
-  // A junction gets a larger, filled ring, so a corner on a crossing is told apart from one
-  // that merely sits on a street.
+  // A junction gets a slightly stronger ring, so a corner on a crossing is told apart from
+  // one that merely sits on a street.
   snap: {
     paint: {
-      'circle-radius': ['case', ['boolean', ['get', 'junction'], false], 15, 10],
+      'circle-radius': ['case', ['boolean', ['get', 'junction'], false], 12, 10],
       'circle-color': ACTIVE_COLOR,
-      'circle-opacity': ['case', ['boolean', ['get', 'junction'], false], 0.35, 0.1],
+      'circle-opacity': ['case', ['boolean', ['get', 'junction'], false], 0.2, 0.1],
       'circle-stroke-color': ACTIVE_COLOR,
-      'circle-stroke-width': ['case', ['boolean', ['get', 'junction'], false], 3, 1.5],
+      'circle-stroke-width': ['case', ['boolean', ['get', 'junction'], false], 2, 1.5],
     },
   },
 } as const satisfies Required<DrawStyles>

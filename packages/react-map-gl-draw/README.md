@@ -225,11 +225,11 @@ snap: {
 
 - New corners, dragged corners and a continued line snap. A shape moved as a whole does not.
 - A ring (style slot `snap`) shows where the corner under the pointer would land.
-- Where three or more streets meet, the ring is larger and filled, and it pulls from further
+- Where three or more streets meet, the ring is slightly stronger, and it pulls from further
   away. In the style, the feature property `junction` is `true` there.
 - A corner of the street wins over a spot along it when the pointer is close, so shapes meet
   streets at their bends and crossings.
-- Hold Alt to place a corner freely. Leave `snap` out to switch snapping off.
+- Hold Alt (Option on a Mac) to place a corner freely. Leave `snap` out to switch snapping off.
 
 This reads the lines as the map has drawn them (`queryRenderedFeatures`). It works across
 tile borders, because each corner is snapped on its own. Positions are as exact as the tiles
