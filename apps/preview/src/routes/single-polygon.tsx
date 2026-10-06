@@ -3,12 +3,11 @@ import {
   DrawLayers,
   useDraw,
   useDrawPreview,
-  type DrawFeature,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
 import type { Polygon } from 'geojson'
-import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
@@ -31,7 +30,7 @@ const formatArea = (squareMeters: number) =>
   `${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(squareMeters / 10_000)} ha`
 
 const SinglePolygon = () => {
-  const [value, setValue] = useState<DrawFeature[]>([])
+  const [value, setValue] = useShapesParam()
   const draw = useDraw(controller, {
     value,
     onChange: setValue,
@@ -95,4 +94,7 @@ const SinglePolygon = () => {
   )
 }
 
-export const Route = createFileRoute('/single-polygon')({ component: SinglePolygon })
+export const Route = createFileRoute('/single-polygon')({
+  component: SinglePolygon,
+  validateSearch: validateShapesSearch,
+})

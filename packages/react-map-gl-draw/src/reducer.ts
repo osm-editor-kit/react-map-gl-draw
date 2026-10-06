@@ -15,6 +15,7 @@ import {
 import { hitTest, hitTestDraft } from './hitTest'
 import { canAddShape, canDeleteShape, shapeTypeOfTool } from './limits'
 import type {
+  Draft,
   DrawChangeMeta,
   DrawFeature,
   DrawGeometry,
@@ -26,6 +27,7 @@ import type {
   PointerInput,
   Project,
   ScreenPoint,
+  VertexRef,
 } from './types'
 
 export type ResolvedOptions = {
@@ -189,6 +191,7 @@ export const finishDraft = (state: DrawState, ctx: ReduceContext): ReduceResult 
     (position, index, all) => !samePosition(position, all[index - 1]),
   )
   if (coordinates.length < minCorners(draft.type)) return { state }
+  if (draft.extend) return finishExtension(state, draft.extend, coordinates, ctx)
   const type = draft.type === 'polygon' ? 'polygon' : 'line'
   if (!canAddShape(ctx.value, ctx.options.limits, type)) {
     return { state: { ...state, draft: null, gesture: null } }
@@ -199,6 +202,33 @@ export const finishDraft = (state: DrawState, ctx: ReduceContext): ReduceResult 
       ? rewindPolygon({ type: 'Polygon', coordinates: [[...coordinates, first]] })
       : { type: 'LineString', coordinates }
   return addFeature(state, geometry, ctx)
+}
+
+/** Adds the corners drawn from one end of a line to that line. */
+const finishExtension = (
+  state: DrawState,
+  extend: NonNullable<Draft['extend']>,
+  coordinates: Position[],
+  ctx: ReduceContext,
+): ReduceResult => {
+  const done = { ...state, draft: null, gesture: null, preview: null, hover: null, lastTap: null }
+  const line = ctx.value.find((feature) => feature.id === extend.featureId)
+  if (line?.geometry.type !== 'LineString') return { state: done }
+  // The first coordinate is the end corner the extension started from.
+  const added = coordinates.slice(1)
+  const existing = line.geometry.coordinates
+  const extended =
+    extend.end === 'end' ? [...existing, ...added] : [...added.toReversed(), ...existing]
+  return {
+    state: { ...done, selectedId: line.id, activeVertex: null },
+    commit: {
+      features: updateFeature(ctx.value, line.id, () => ({
+        type: 'LineString',
+        coordinates: extended,
+      })),
+      meta: { reason: 'edit', featureId: line.id },
+    },
+  }
 }
 
 export const cancelDraft = (state: DrawState): ReduceResult => ({
@@ -499,6 +529,16 @@ const click = (
   if (state.draft) {
     const draft = state.draft
     const onDraft = hitTestDraft(draft, start.point, project, options.tolerance[start.pointerType])
+    // An extension that has no corner of its own yet: a second click on the end it started
+    // from takes it back. A quick second click is the double click that removes the corner.
+    if (draft.extend && draft.coordinates.length === 1 && onDraft) {
+      const quick =
+        state.lastTap !== null &&
+        time - state.lastTap.time <= DOUBLE_TAP_MS &&
+        distance(state.lastTap.point, start.point) <= DOUBLE_TAP_DISTANCE[start.pointerType]
+      const cancelled = { ...state, draft: null, hover: null, lastTap: null }
+      return quick ? deleteActiveVertex(cancelled, ctx) : { state: cancelled }
+    }
     const closes =
       double || onDraft?.end === 'last' || (draft.type === 'polygon' && onDraft?.end === 'first')
     if (closes) {
@@ -543,6 +583,17 @@ const click = (
   return { state }
 }
 
+const lineEndAt = (value: DrawFeature[], ref: VertexRef) => {
+  const feature = value.find((candidate) => candidate.id === ref.featureId)
+  if (feature?.geometry.type !== 'LineString') return null
+  const { coordinates } = feature.geometry
+  const position = coordinates[ref.index]
+  if (!position) return null
+  if (ref.index === coordinates.length - 1) return { end: 'end' as const, position }
+  if (ref.index === 0) return { end: 'start' as const, position }
+  return null
+}
+
 export type PointerRelease = {
   time: number
   /** Where the pointer was released, or `null` when that happened outside the map. */
@@ -585,7 +636,21 @@ export const pointerUp = (
       if (isDoubleTap(state.lastTap, start.point, start.pointerType, time, target)) {
         return deleteActiveVertex({ ...cleared, lastTap: null }, ctx)
       }
-      return { state: { ...cleared, lastTap: { time, point: start.point, target } } }
+      const tapped = { ...cleared, lastTap: { time, point: start.point, target } }
+      // A click on the first or last corner of a line continues the line from there.
+      const extend = lineEndAt(ctx.value, ref)
+      if (!extend) return { state: tapped }
+      return {
+        state: {
+          ...tapped,
+          draft: {
+            type: 'line',
+            coordinates: [extend.position],
+            cursor: extend.position,
+            extend: { featureId: ref.featureId, end: extend.end },
+          },
+        },
+      }
     }
 
     case 'feature':

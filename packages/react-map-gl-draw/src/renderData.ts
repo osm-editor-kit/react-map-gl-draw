@@ -75,7 +75,9 @@ export const buildRenderData = (
   for (const shape of shapes) {
     features.push({
       type: 'Feature',
-      geometry: shape.geometry,
+      // A copy with a normal prototype. Routers hand out search params as objects without
+      // one, and react-map-gl's prop comparison calls `hasOwnProperty` on what it is given.
+      geometry: { ...shape.geometry },
       properties: {
         ...shape.properties,
         role: 'shape',

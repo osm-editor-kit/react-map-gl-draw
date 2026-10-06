@@ -578,7 +578,11 @@ describe('review findings', () => {
       type: 'Feature',
       id: 'l',
       properties: {},
-      geometry: { type: 'LineString', coordinates: [at(100, 100), at(107, 100), at(300, 100)] },
+      // Two corners in the middle; a tap on an end corner would continue the line instead.
+      geometry: {
+        type: 'LineString',
+        coordinates: [at(0, 100), at(100, 100), at(107, 100), at(300, 100)],
+      },
     } satisfies DrawFeature
     const s = surface([closeCorners], { selectSingle: true })
     s.down(101, 100)
@@ -615,5 +619,85 @@ describe('review findings', () => {
       [...at(100, 100), 35],
       [...at(250, 150), 40],
     ])
+  })
+})
+
+describe('continuing a line', () => {
+  const coordinatesOf = (feature: DrawFeature | undefined) =>
+    feature?.geometry.type === 'LineString' ? feature.geometry.coordinates : []
+
+  it('continues from the last corner with a single click on it', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.click(300, 100)
+    expect(s.state.draft?.extend).toEqual({ featureId: 'l', end: 'end' })
+    s.click(400, 150)
+    s.click(500, 100)
+    expect(s.commits).toEqual([])
+    s.key('Enter')
+    expect(s.commits).toEqual([{ reason: 'edit', featureId: 'l' }])
+    expect(coordinatesOf(s.value[0])).toEqual([
+      at(100, 100),
+      at(200, 100),
+      at(300, 100),
+      at(400, 150),
+      at(500, 100),
+    ])
+    expect(s.value).toHaveLength(1)
+  })
+
+  it('continues from the first corner and keeps the line in drawing order', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.click(100, 100)
+    s.click(50, 150)
+    s.doubleClick(0, 100)
+    expect(coordinatesOf(s.value[0])).toEqual([
+      at(0, 100),
+      at(50, 150),
+      at(100, 100),
+      at(200, 100),
+      at(300, 100),
+    ])
+  })
+
+  it('leaves the line as it was on Escape', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.click(300, 100)
+    s.click(400, 150)
+    s.key('Escape')
+    expect(s.state.draft).toBeNull()
+    expect(s.commits).toEqual([])
+    expect(coordinatesOf(s.value[0])).toHaveLength(3)
+  })
+
+  it('still removes an end corner on double click', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.doubleClick(300, 100)
+    expect(s.state.draft).toBeNull()
+    expect(coordinatesOf(s.value[0])).toEqual([at(100, 100), at(200, 100)])
+  })
+
+  it('takes the continuation back on a second, slow click on the same end', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.click(300, 100)
+    s.click(300, 100)
+    expect(s.state.draft).toBeNull()
+    expect(s.commits).toEqual([])
+  })
+
+  it('does not continue from a corner in the middle, or when the corner is dragged', () => {
+    const s = surface([line()], { selectSingle: true })
+    s.click(200, 100)
+    expect(s.state.draft).toBeNull()
+    s.drag([300, 100], [340, 140])
+    expect(s.state.draft).toBeNull()
+    expect(coordinatesOf(s.value[0])[2]).toEqual(at(340, 140))
+  })
+
+  it('is not limited by the shape limits, since no shape is added', () => {
+    const s = surface([line()], { selectSingle: true, limits: { total: 1 } })
+    s.click(300, 100)
+    s.click(400, 100)
+    s.key('Enter')
+    expect(coordinatesOf(s.value[0])).toHaveLength(4)
   })
 })

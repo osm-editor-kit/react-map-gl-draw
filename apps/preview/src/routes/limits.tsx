@@ -4,12 +4,11 @@ import {
   featuresFromGeometry,
   geometryFromFeatures,
   useDraw,
-  type DrawFeature,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
 import type { MultiPolygon } from 'geojson'
-import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
@@ -37,9 +36,11 @@ const stored: MultiPolygon = {
   ],
 }
 
+const initialParts = featuresFromGeometry(stored)
+
 const Limits = () => {
   // Each part becomes one shape; `geometryFromFeatures` puts them back together.
-  const [value, setValue] = useState<DrawFeature[]>(() => featuresFromGeometry(stored))
+  const [value, setValue] = useShapesParam(initialParts)
   const draw = useDraw(controller, {
     value,
     onChange: setValue,
@@ -98,4 +99,7 @@ const Limits = () => {
   )
 }
 
-export const Route = createFileRoute('/limits')({ component: Limits })
+export const Route = createFileRoute('/limits')({
+  component: Limits,
+  validateSearch: validateShapesSearch,
+})

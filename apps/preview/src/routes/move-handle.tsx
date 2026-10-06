@@ -5,8 +5,8 @@ import {
   type DrawFeature,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
@@ -50,7 +50,7 @@ const initialShapes: DrawFeature[] = [
 ]
 
 const MoveHandle = () => {
-  const [value, setValue] = useState(initialShapes)
+  const [value, setValue, reset] = useShapesParam(initialShapes)
   const draw = useDraw(controller, { value, onChange: setValue, moveBy: 'handle' })
 
   return (
@@ -58,7 +58,7 @@ const MoveHandle = () => {
       <div className="toolbar">
         <span>Selected: {draw.selectedId ?? 'nothing'}</span>
         <span className="spacer" />
-        <button onClick={() => setValue(initialShapes)}>Reset</button>
+        <button onClick={reset}>Reset</button>
       </div>
       <div className="map">
         <DemoMap draw={draw}>
@@ -85,4 +85,7 @@ const MoveHandle = () => {
   )
 }
 
-export const Route = createFileRoute('/move-handle')({ component: MoveHandle })
+export const Route = createFileRoute('/move-handle')({
+  component: MoveHandle,
+  validateSearch: validateShapesSearch,
+})

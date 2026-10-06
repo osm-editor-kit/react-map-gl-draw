@@ -9,8 +9,8 @@ import {
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
 import type { ExpressionSpecification } from 'maplibre-gl'
-import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
@@ -96,7 +96,7 @@ const styles = ({ isDrawing }: DrawStyleState) =>
   }) satisfies DrawStyles
 
 const CustomStyles = () => {
-  const [value, setValue] = useState(initialShapes)
+  const [value, setValue] = useShapesParam(initialShapes)
   const draw = useDraw(controller, { value, onChange: setValue })
 
   return (
@@ -143,4 +143,7 @@ const CustomStyles = () => {
   )
 }
 
-export const Route = createFileRoute('/custom-styles')({ component: CustomStyles })
+export const Route = createFileRoute('/custom-styles')({
+  component: CustomStyles,
+  validateSearch: validateShapesSearch,
+})

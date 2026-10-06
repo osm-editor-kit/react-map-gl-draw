@@ -85,6 +85,11 @@ export type Draft = {
   coordinates: Position[]
   /** Pointer position for the rubber band; `null` on touch between taps. */
   cursor: Position | null
+  /**
+   * Set when the draft continues an existing line from one of its ends. `coordinates` then
+   * starts with that end corner, and finishing adds the rest to the line.
+   */
+  extend?: { featureId: string; end: 'start' | 'end' }
 }
 
 export type PointerInput = {

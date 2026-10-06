@@ -2,19 +2,18 @@ import {
   createDrawController,
   DrawLayers,
   useDraw,
-  type DrawFeature,
   type DrawTool,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
 const tools = ['select', 'point', 'line', 'polygon', 'freehand'] satisfies DrawTool[]
 
 const Basics = () => {
-  const [value, setValue] = useState<DrawFeature[]>([])
+  const [value, setValue] = useShapesParam()
   const draw = useDraw(controller, { value, onChange: setValue })
 
   return (
@@ -40,8 +39,9 @@ const Basics = () => {
       <aside className="side">
         <h2>Basics</h2>
         <p>
-          The shapes live in <code>useState</code>. <code>useDraw</code> gets them as{' '}
-          <code>value</code> and reports each finished gesture through <code>onChange</code>.
+          <code>useDraw</code> gets the shapes as <code>value</code> and reports each finished
+          gesture through <code>onChange</code>. Like every page here, this one keeps them in the
+          URL, so the address bar is a link to what you drew.
         </p>
         <ul>
           <li>
@@ -58,4 +58,7 @@ const Basics = () => {
   )
 }
 
-export const Route = createFileRoute('/')({ component: Basics })
+export const Route = createFileRoute('/')({
+  component: Basics,
+  validateSearch: validateShapesSearch,
+})

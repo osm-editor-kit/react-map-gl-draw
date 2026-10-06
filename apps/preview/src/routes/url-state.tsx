@@ -2,28 +2,21 @@ import {
   createDrawController,
   DrawLayers,
   useDraw,
-  type DrawFeature,
   type DrawTool,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
 import { DemoMap } from '../DemoMap'
+import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
 const controller = createDrawController()
 
 const tools = ['select', 'point', 'line', 'polygon'] satisfies DrawTool[]
 
-// A stable reference while the URL has no shapes.
-const NO_SHAPES: DrawFeature[] = []
-
-type Search = { shapes?: DrawFeature[] }
-
 const UrlState = () => {
-  const { shapes = NO_SHAPES } = Route.useSearch()
-  const navigate = Route.useNavigate()
+  const [shapes, setShapes] = useShapesParam()
   const draw = useDraw(controller, {
     value: shapes,
-    onChange: (next) =>
-      navigate({ search: { shapes: next.length > 0 ? next : undefined }, replace: true }),
+    onChange: setShapes,
     // Five decimals are about one meter and keep the URL short.
     precision: 5,
   })
@@ -51,9 +44,10 @@ const UrlState = () => {
       <aside className="side">
         <h2>URL state</h2>
         <p>
-          The shapes are the <code>shapes</code> search param. <code>onChange</code> calls{' '}
-          <code>navigate</code> with <code>replace: true</code>. It fires once per finished gesture,
-          so a drag is one URL update, not one per mouse move.
+          The shapes are the <code>shapes</code> search param; see <code>shapesParam.ts</code> for
+          the few lines that read and write it. <code>onChange</code> calls <code>navigate</code>{' '}
+          with <code>replace: true</code>. It fires once per finished gesture, so a drag is one URL
+          update, not one per mouse move.
         </p>
         <p>Draw something, then reload or copy the URL into another tab.</p>
         <pre>{JSON.stringify(shapes, null, 2)}</pre>
@@ -64,9 +58,5 @@ const UrlState = () => {
 
 export const Route = createFileRoute('/url-state')({
   component: UrlState,
-  // A real app validates the shapes here, for example with a schema library.
-  validateSearch: (search: Record<string, unknown>) =>
-    ({
-      shapes: Array.isArray(search.shapes) ? (search.shapes as DrawFeature[]) : undefined,
-    }) satisfies Search,
+  validateSearch: validateShapesSearch,
 })

@@ -245,6 +245,13 @@ describe('render data', () => {
     expect(shape?.properties).toMatchObject({ label: 'A', role: 'shape', featureId: 'a' })
   })
 
+  it('renders geometries as plain objects even when the app passes objects without a prototype', () => {
+    const geometry = Object.assign(Object.create(null), triangle) as DrawGeometry
+    const [shape] = buildRenderData([feature('a', geometry)], idle, null).features
+    expect(Object.getPrototypeOf(shape?.geometry)).toBe(Object.prototype)
+    expect(shape?.geometry).toEqual(triangle)
+  })
+
   it('renders the preview instead of the value during a drag', () => {
     const preview = [feature('a', { type: 'Point', coordinates: [9, 9] })]
     const data = buildRenderData([feature('a', triangle)], { ...idle, preview }, null)
