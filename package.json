@@ -15,9 +15,12 @@
     "format:check": "oxfmt -c oxfmt.config.mjs --check .",
     "check-exports": "bun run --filter @osm-editor-kit/react-map-gl-draw check-exports",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
-    "dev": "bun run --filter preview dev"
+    "dev": "bun run --filter preview dev",
+    "version-packages": "changeset version",
+    "release": "bun run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "oxfmt": "^0.60.0",
     "oxlint": "^1.75.0",
     "typescript": "^5.7.2"

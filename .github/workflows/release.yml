@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: Force a version bump (none = only if there are pending changesets)
+        type: choice
+        options: [none, patch, minor, major]
+        default: none
+      publish_only:
+        description: Publish the current version to npm without bumping (retry after a failed publish)
+        type: boolean
+        default: false
+
+concurrency: release
+
+permissions:
+  contents: write
+  id-token: write # npm trusted publishing / provenance
+
+jobs:
+  release:
+    # Skip the version commit of this workflow to avoid loops.
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Pending .changeset/*.md files on main are consumed on push-triggered runs.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Detect pending changesets
+        id: pending
+        run: |
+          shopt -s nullglob
+          files=(.changeset/*.md)
+          for f in "${files[@]}"; do
+            case "$(basename "$f")" in README.md) continue ;; esac
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+          echo "found=false" >> "$GITHUB_OUTPUT"
+
+      - name: Plan release
+        id: plan
+        env:
+          HAS_CHANGESETS: ${{ steps.pending.outputs.found }}
+          VERSION_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.version_bump || 'none' }}
+          PUBLISH_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_only || 'false' }}
+        run: |
+          if [ "$PUBLISH_ONLY" = true ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "publish_only=true" >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_CHANGESETS" = true ] || [ "$VERSION_BUMP" != none ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "publish_only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing to version or publish."
+          fi
+
+      - name: Lint, build, test, check exports
+        if: steps.plan.outputs.release == 'true'
+        run: |
+          bun run check
+          bun run build
+          bun run check-exports
+
+      - name: Version and commit
+        if: steps.plan.outputs.release == 'true' && steps.plan.outputs.publish_only != 'true'
+        env:
+          HAS_CHANGESETS: ${{ steps.pending.outputs.found }}
+          VERSION_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.version_bump || 'none' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # A forced manual bump needs a synthetic changeset when none exist.
+          if [ "$HAS_CHANGESETS" != true ] && [ "$VERSION_BUMP" != none ]; then
+            cat > ".changeset/manual-${{ github.run_id }}.md" <<EOF
+          ---
+          "@osm-editor-kit/react-map-gl-draw": $VERSION_BUMP
+          ---
+
+          Release ($VERSION_BUMP).
+          EOF
+          fi
+
+          bun run version-packages
+          # changesets writes CHANGELOG.md with long unwrapped lines; format before commit.
+          bun run format
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No version changes to commit."
+          else
+            git commit -m "chore: release [skip ci]"
+            git push
+          fi
+
+      - name: Setup Node for npm OIDC publishing
+        if: steps.plan.outputs.release == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm
+        if: steps.plan.outputs.release == 'true'
+        run: |
+          npm install -g npm@latest
+          bun run release
+
+      - name: Push version tags
+        if: steps.plan.outputs.release == 'true'
+        run: git push --tags

@@ -42,3 +42,15 @@ in the app, and restart its dev server.
 ## License
 
 MIT
+
+## Release
+
+Versioning via [changesets](https://github.com/changesets/changesets). The workflow
+`.github/workflows/release.yml` versions and publishes to npm; there is no release PR.
+
+- **Push to `main`:** when the push includes a `.changeset/*.md` file (`bunx changeset`), the
+  workflow bumps the version, commits it and publishes.
+- **Manual:** Actions → Release → Run workflow, with a forced patch, minor or major bump, or
+  "publish only" to retry a failed publish.
+
+Publishing uses npm trusted publishing (OIDC), so the repo holds no npm token.
