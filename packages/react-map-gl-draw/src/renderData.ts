@@ -81,7 +81,9 @@ const draftFeatures = (draft: NonNullable<DrawState['draft']>, closeTarget: Posi
  */
 export const buildRenderData = (
   value: DrawFeature[],
-  state: Pick<DrawState, 'preview' | 'draft' | 'activeVertex' | 'hover' | 'gesture' | 'snap'>,
+  state: Pick<DrawState, 'preview' | 'draft' | 'activeVertex' | 'hover' | 'snap'> & {
+    draggingCorner: boolean
+  },
   selectedId: string | null,
   /** See `closeTargetOf`; the corner that turns the line being drawn into a polygon. */
   closeTarget: Position | null = null,
@@ -129,7 +131,7 @@ export const buildRenderData = (
       })
     })
     // While a corner is dragged the midpoints would only jump around.
-    if (state.gesture?.kind !== 'vertex') {
+    if (!state.draggingCorner) {
       for (const midpoint of midpointsOf(selected.geometry)) {
         const isHovered =
           hover?.role === 'midpoint' &&

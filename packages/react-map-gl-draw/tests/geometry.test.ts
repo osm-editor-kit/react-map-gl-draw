@@ -1,7 +1,6 @@
 import type { Position } from 'geojson'
 import { describe, expect, it } from 'vitest'
 import {
-  bboxOf,
   insertVertex,
   midpointsOf,
   moveVertex,
@@ -137,10 +136,6 @@ describe('other geometry helpers', () => {
     })
   })
 
-  it('computes the bounding box', () => {
-    expect(bboxOf(withHole)).toEqual([0, 0, 10, 10])
-  })
-
   it('winds the outer ring counter-clockwise and holes clockwise', () => {
     const clockwise = {
       type: 'Polygon',
@@ -233,7 +228,7 @@ describe('render data', () => {
     draft: null,
     activeVertex: null,
     hover: null,
-    gesture: null,
+    draggingCorner: false,
     snap: null,
   }
   const roles = (collection: ReturnType<typeof buildRenderData>) =>

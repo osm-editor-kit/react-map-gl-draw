@@ -1,10 +1,9 @@
-import type { GeoJsonProperties, Geometry } from 'geojson'
+import type { Geometry } from 'geojson'
 import { shapeTypeOf } from './geometry'
 import type { DrawFeature, DrawGeometry } from './types'
 
 type FromGeometryOptions = {
   createId?: (index: number) => string
-  properties?: GeoJsonProperties
 }
 
 const partsOf = (geometry: Geometry): DrawGeometry[] => {
@@ -36,7 +35,7 @@ export const featuresFromGeometry = (
     type: 'Feature',
     id: createId(index),
     geometry: part,
-    properties: options.properties ?? {},
+    properties: {},
   }))
   return features
 }

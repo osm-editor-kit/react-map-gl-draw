@@ -82,9 +82,9 @@ export const DrawLayers = ({
   const draft = useStore(store, (state) => state.draft)
   const activeVertex = useStore(store, (state) => state.activeVertex)
   const hover = useStore(store, (state) => state.hover)
-  const gesture = useStore(store, (state) => state.gesture)
   const snap = useStore(store, (state) => state.snap)
-  const draggingCorner = gesture?.kind === 'vertex'
+  // Only the kind of gesture matters for rendering, not each step of it.
+  const draggingCorner = useStore(store, (state) => state.gesture?.kind === 'vertex')
 
   const closeTarget = closeTargetOf(draft, value, options)
 
@@ -92,12 +92,10 @@ export const DrawLayers = ({
     () =>
       buildRenderData(
         value,
-        // Only the kind of gesture matters for rendering, not each step of it.
-        { preview, draft, activeVertex, hover, snap, gesture: draggingCorner ? gesture : null },
+        { preview, draft, activeVertex, hover, snap, draggingCorner },
         enabled ? selectedId : null,
         closeTarget,
       ),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `gesture` is covered by `draggingCorner`
     [
       value,
       preview,
@@ -144,17 +142,10 @@ export const DrawLayers = ({
   )
 
   useEffect(
-    function dropGestureWhenDisabled() {
-      if (!enabled) controller.reset()
+    function resetGestureStateWhenDisabledOrUnmounted() {
+      if (enabled) return () => controller.reset()
     },
     [controller, enabled],
-  )
-
-  useEffect(
-    function resetGestureStateOnUnmount() {
-      return () => controller.reset()
-    },
-    [controller],
   )
 
   const shapes = preview ?? value

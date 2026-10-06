@@ -346,11 +346,11 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 
 ## Helpers
 
-- `featuresFromGeometry(geometry, { createId?, properties? })`: one shape per part of any
+- `featuresFromGeometry(geometry, { createId? })`: one shape per part of any
   GeoJSON geometry.
 - `geometryFromFeatures(features)`: one geometry from shapes of one type (a single shape stays
   simple, several become the `Multi*` type).
-- `canAddShape`, `canDeleteShape`, `shapeTypeOf`.
+- `shapeTypeOf(geometry)`: `'point'`, `'line'` or `'polygon'`.
 
 ## Not included
 

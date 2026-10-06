@@ -19,7 +19,7 @@
   "author": "Tobias Jordans",
   "repository": {
     "type": "git",
-    "url": "https://github.com/osm-editor-kit/react-map-gl-draw",
+    "url": "git+https://github.com/osm-editor-kit/react-map-gl-draw.git",
     "directory": "packages/react-map-gl-draw"
   },
   "files": [
@@ -30,7 +30,6 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
@@ -63,8 +62,5 @@
     "maplibre-gl": ">=4",
     "react": ">=19.2",
     "react-map-gl": ">=8"
-  },
-  "engines": {
-    "node": ">=20"
   }
 }

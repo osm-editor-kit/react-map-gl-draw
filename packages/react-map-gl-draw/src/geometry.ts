@@ -167,24 +167,6 @@ export const midpointsOf = (geometry: DrawGeometry) => {
   )
 }
 
-export const bboxOf = (geometry: DrawGeometry) => {
-  let minLng = Infinity
-  let minLat = Infinity
-  let maxLng = -Infinity
-  let maxLat = -Infinity
-  for (const ring of ringsOf(geometry)) {
-    for (const position of ring) {
-      const lng = position[0] ?? 0
-      const lat = position[1] ?? 0
-      if (lng < minLng) minLng = lng
-      if (lat < minLat) minLat = lat
-      if (lng > maxLng) maxLng = lng
-      if (lat > maxLat) maxLat = lat
-    }
-  }
-  return [minLng, minLat, maxLng, maxLat] as const
-}
-
 /** Twice the signed area; positive when the ring runs counter-clockwise. */
 const signedArea2 = (ring: Position[]) => {
   let sum = 0
