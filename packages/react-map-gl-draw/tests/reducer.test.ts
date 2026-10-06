@@ -349,28 +349,39 @@ describe('editing', () => {
     expect(ringOf(s.value[0])).toHaveLength(5)
   })
 
-  it('selects and moves a polygon with one press when moveBy is body', () => {
+  it('only selects a polygon by default, so the map can pan; the handle moves it', () => {
     const s = surface([square()])
-    const down = s.drag([150, 150], [250, 170])
-    expect(down.preventDefault).toBe(true)
-    expect(s.selectedId()).toBe('a')
-    expect(ringOf(s.value[0])[0]).toEqual(at(200, 120))
-  })
-
-  it('only selects a polygon when moveBy is handle, so the map can pan', () => {
-    const s = surface([square()], { moveBy: 'handle' })
     const down = s.drag([150, 150], [250, 170])
     expect(down.preventDefault).toBeUndefined()
     expect(s.selectedId()).toBe('a')
     expect(s.commits).toEqual([])
   })
 
-  it('moves a point only once it is selected when moveBy is handle', () => {
-    const s = surface([pointAt('p', 100, 100), pointAt('q', 300, 300)], { moveBy: 'handle' })
-    s.drag([100, 100], [150, 150])
-    expect(s.commits).toEqual([])
-    s.drag([100, 100], [150, 150])
-    expect(s.value[0]?.geometry.coordinates).toEqual(at(150, 150))
+  it('selects and moves a polygon with one press when moveBy is body', () => {
+    const s = surface([square()], { moveBy: { polygon: 'body' } })
+    const down = s.drag([150, 150], [250, 170])
+    expect(down.preventDefault).toBe(true)
+    expect(s.selectedId()).toBe('a')
+    expect(ringOf(s.value[0])[0]).toEqual(at(200, 120))
+  })
+
+  it('drags a point by default and leaves it alone when points move by the handle', () => {
+    const byBody = surface([pointAt('p', 100, 100)])
+    byBody.drag([100, 100], [150, 150])
+    expect(byBody.value[0]?.geometry.coordinates).toEqual(at(150, 150))
+
+    const byHandle = surface([pointAt('p', 100, 100)], { moveBy: { point: 'handle' } })
+    byHandle.drag([100, 100], [150, 150])
+    byHandle.drag([100, 100], [150, 150])
+    expect(byHandle.commits).toEqual([])
+    expect(byHandle.selectedId()).toBe('p')
+  })
+
+  it('applies a single moveBy value to points and polygons', () => {
+    const s = surface([square(), pointAt('p', 400, 400)], { moveBy: 'body' })
+    s.drag([150, 150], [250, 170])
+    s.drag([400, 400], [450, 450])
+    expect(s.commits).toHaveLength(2)
   })
 
   it('never moves a line by its body: a press on a selected line inserts a corner', () => {
@@ -501,7 +512,7 @@ describe('cursor', () => {
     s.move(150, 100)
     expect(s.cursor()).toBe('copy')
     s.move(150, 150)
-    expect(s.cursor()).toBe('move')
+    expect(s.cursor()).toBe('pointer')
     s.move(700, 700)
     expect(s.cursor()).toBeUndefined()
     s.tool('line')
@@ -552,7 +563,7 @@ describe('review findings', () => {
   })
 
   it('commits nothing when the dragged shape was removed meanwhile', () => {
-    const s = surface([square(), square('b', 300)])
+    const s = surface([square(), square('b', 300)], { moveBy: 'body' })
     s.down(150, 150)
     s.move(250, 170)
     s.value = [square('b', 300)]

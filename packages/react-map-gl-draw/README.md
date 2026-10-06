@@ -127,7 +127,7 @@ It decides what a press on empty map does. What is under the pointer comes first
 | First or last corner of the shape being drawn                     | Finish the shape                                 |
 | Corner of the selected shape                                      | Drag the corner                                  |
 | Midpoint handle, or anywhere on the outline of the selected shape | Insert a corner; keep the button down to drag it |
-| Body of a shape                                                   | Select it; drag it if `moveBy` allows            |
+| Body of a shape                                                   | Select it; drag it where `moveBy` is `'body'`    |
 | Empty map while drawing                                           | Add a corner                                     |
 | Empty map with a shape tool                                       | Start a shape (a point is placed at once)        |
 | Empty map with `select`                                           | Deselect; the map pans                           |
@@ -154,13 +154,14 @@ useDraw(controller, {
   onChange, // (next, meta) => void; meta = { reason: 'add' | 'edit' | 'delete', featureId }
   enabled, // false turns interaction off and empties mapProps. Default true.
   limits, // see below
-  moveBy, // 'body' (default) | 'handle'
+  moveBy, // 'handle' | 'body', or one per type. Default: polygons 'handle', points 'body'.
   emptyTool, // tool that is armed while value is empty
   selectSingle, // treat the only shape as selected. Default false.
   keepTool, // keep a shape tool armed after adding a shape. Default false.
   precision, // decimals kept for coordinates. Default 7.
   createId, // id for a new shape. Default crypto.randomUUID().
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
+  snap, // snap corners to lines of the map underneath; see below
 })
 ```
 
@@ -181,12 +182,47 @@ When a limit is reached, `draw.tool` falls back to `select` and `draw.canAdd(typ
 
 ### `moveBy`
 
-- `'body'`: a press on a polygon or point selects it and drags it in the same gesture.
-- `'handle'`: the body only selects. A move handle above the selected shape drags it. Use this
-  where an accidental move of saved data would be costly.
+How a whole shape is moved.
 
-Lines always use the handle, because a press on a selected line inserts a corner. With
-`'handle'`, a point moves when it is dragged while selected.
+- `'handle'`: only by the move handle that the selected shape shows. A press on the shape
+  itself selects it and leaves the map free to pan.
+- `'body'`: by pressing the shape and dragging.
+
+```ts
+moveBy: 'body' // points and polygons
+moveBy: { point: 'handle', polygon: 'body' } // per type
+```
+
+Defaults: polygons `'handle'`, points `'body'`. Moving a whole area is the rare case, its
+surface is large, and the handle says what it does. Lines always use the handle, because a
+press on a selected line inserts a corner.
+
+The handle sits inside a polygon, above the top corner of a line, and above a point.
+
+### `snap`
+
+Snaps corners to lines of the map underneath, for example the streets of the basemap, so a
+street can be traced by hand, corner by corner.
+
+```ts
+snap: {
+  sourceLayer: 'transportation', // every line layer of the style that draws this source layer
+  // or: layers: ['highway_minor', 'highway_major_inner'],
+  filter: ['in', ['get', 'class'], ['literal', ['primary', 'secondary', 'tertiary', 'minor']]],
+  radius: 14, // px, the default
+}
+```
+
+- New corners, dragged corners and a continued line snap. A shape moved as a whole does not.
+- A ring (style slot `snap`) shows where the corner under the pointer would land.
+- A corner of the street wins over a spot along it when the pointer is close, so shapes meet
+  streets at their bends and crossings.
+- Hold Alt to place a corner freely. Leave `snap` out to switch snapping off.
+
+This reads the lines as the map has drawn them (`queryRenderedFeatures`). It works across
+tile borders, because each corner is snapped on its own. Positions are as exact as the tiles
+at the current zoom; zoom in for exact work. It does not route along streets between two
+clicks.
 
 ### `emptyTool` and `selectSingle`
 
@@ -218,7 +254,7 @@ drag that has not been committed. Use it for a live readout (an area, a sum) whi
 
 ## Styling
 
-`<DrawLayers>` renders one GeoJSON source and five layers. Pass layer styles per slot; they are
+`<DrawLayers>` renders one GeoJSON source and six layers. Pass layer styles per slot; they are
 merged over the defaults key by key. `null` removes a layer.
 
 | Slot       | Layer type | Shows                                             |
@@ -228,6 +264,7 @@ merged over the defaults key by key. `null` removes a layer.
 | `point`    | `circle`   | Point shapes                                      |
 | `midpoint` | `circle`   | "Add a corner here" handles of the selected shape |
 | `vertex`   | `circle`   | Corner handles                                    |
+| `snap`     | `circle`   | Ring around the place a corner snaps to           |
 
 State reaches the style as feature properties:
 
@@ -308,7 +345,7 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 ## Not included
 
 - Undo. Keep a history of `value` in your app; every `onChange` is one step.
-- Snapping, rectangles, circles, rotation and scaling.
+- Routing along streets, rectangles, circles, rotation and scaling.
 - Editing `Multi*` geometries as one shape; split them with `featuresFromGeometry`.
 
 ## Thanks to TerraDraw
@@ -316,8 +353,8 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 This package exists because of [TerraDraw](https://github.com/JamesLMilner/terra-draw) by James
 Milner. We used it in production first, and it taught us what the interactions should feel
 like: midpoint handles, closing a polygon on its first corner, screen-space hit-testing with a
-pixel tolerance. If you are not building on react-map-gl, or you need snapping, rectangles,
-circles or undo out of the box, use TerraDraw.
+pixel tolerance. If you are not building on react-map-gl, or you need rectangles, circles or
+undo out of the box, use TerraDraw.
 
 We wrote our own because of how our apps hold their data, not because of a fault in TerraDraw.
 TerraDraw is built to work with any map library and any framework. To do that it owns a

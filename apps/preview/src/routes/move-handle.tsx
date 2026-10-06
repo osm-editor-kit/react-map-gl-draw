@@ -6,6 +6,7 @@ import {
   type DrawFeature,
 } from '@osm-editor-kit/react-map-gl-draw'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { DemoMap } from '../DemoMap'
 import { useShapesParam, validateShapesSearch } from '../shapesParam'
 
@@ -52,7 +53,17 @@ const initialShapes: DrawFeature[] = [
 
 const MoveHandle = () => {
   const { value, onChange, createId, reset } = useShapesParam(initialShapes)
-  const draw = useDraw(controller, { value, onChange, createId, moveBy: 'handle' })
+  const [pointsByHandle, setPointsByHandle] = useState(false)
+  const [polygonsByBody, setPolygonsByBody] = useState(false)
+  const draw = useDraw(controller, {
+    value,
+    onChange,
+    createId,
+    moveBy: {
+      point: pointsByHandle ? 'handle' : 'body',
+      polygon: polygonsByBody ? 'body' : 'handle',
+    },
+  })
   const selected = value.find((shape) => shape.id === draw.selectedId)
 
   return (
@@ -70,13 +81,34 @@ const MoveHandle = () => {
       <aside className="side">
         <h2>Move handle</h2>
         <p>
-          With <code>moveBy: 'handle'</code> a press on a shape only selects it. The selected shape
-          gets a round handle above it, and dragging that handle moves the shape. Panning the map
-          across a large polygon stays possible this way.
+          By default a polygon moves only by its handle: a press on the area selects it and the map
+          can still be panned across it. <code>moveBy</code> changes that per type.
         </p>
+        <ul className="checks">
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                checked={polygonsByBody}
+                onChange={(event) => setPolygonsByBody(event.target.checked)}
+              />{' '}
+              polygons: <code>'body'</code>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                checked={pointsByHandle}
+                onChange={(event) => setPointsByHandle(event.target.checked)}
+              />{' '}
+              points: <code>'handle'</code>
+            </label>
+          </li>
+        </ul>
         <ul>
           <li>Lines always use the handle, because a press on a selected line adds a corner.</li>
-          <li>A point has no handle. Select it first, then drag it.</li>
+          <li>Points are dragged directly unless they are set to use the handle.</li>
           <li>
             Pass <code>moveHandle</code> to <code>DrawLayers</code> to render your own handle.
           </li>

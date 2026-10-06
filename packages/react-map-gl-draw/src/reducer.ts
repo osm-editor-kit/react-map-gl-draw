@@ -20,6 +20,7 @@ import type {
   DrawFeature,
   DrawGeometry,
   DrawLimits,
+  DrawMoveBy,
   DrawOptions,
   DrawState,
   DrawTool,
@@ -32,7 +33,7 @@ import type {
 
 export type ResolvedOptions = {
   limits: DrawLimits | undefined
-  moveBy: 'body' | 'handle'
+  moveBy: { point: DrawMoveBy; polygon: DrawMoveBy }
   emptyTool: Exclude<DrawTool, 'select'> | undefined
   selectSingle: boolean
   keepTool: boolean
@@ -48,10 +49,14 @@ const randomId = () =>
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
 export const resolveOptions = (
-  options: Omit<DrawOptions, 'value' | 'onChange' | 'enabled'>,
+  options: Omit<DrawOptions, 'value' | 'onChange' | 'enabled' | 'snap'>,
 ): ResolvedOptions => ({
   limits: options.limits,
-  moveBy: options.moveBy ?? 'body',
+  moveBy: {
+    point: (typeof options.moveBy === 'string' ? options.moveBy : options.moveBy?.point) ?? 'body',
+    polygon:
+      (typeof options.moveBy === 'string' ? options.moveBy : options.moveBy?.polygon) ?? 'handle',
+  },
   emptyTool: options.emptyTool,
   selectSingle: options.selectSingle ?? false,
   keepTool: options.keepTool ?? false,
@@ -81,6 +86,7 @@ export const initialDrawState: DrawState = {
   gesture: null,
   preview: null,
   hover: null,
+  snap: null,
   lastTap: null,
   settling: null,
 }
@@ -136,6 +142,13 @@ const isDoubleTap = (
   lastTap.target === target &&
   time - lastTap.time <= DOUBLE_TAP_MS &&
   distance(lastTap.point, point) <= DOUBLE_TAP_DISTANCE[pointerType]
+
+/** A line never does: a press on it inserts a corner. */
+export const movesByBody = (feature: DrawFeature, options: ResolvedOptions) => {
+  if (feature.geometry.type === 'Point') return options.moveBy.point === 'body'
+  if (feature.geometry.type === 'Polygon') return options.moveBy.polygon === 'body'
+  return false
+}
 
 const sameHit = (a: Hit | null, b: Hit | null) => {
   if (a === null || b === null) return a === b
@@ -347,10 +360,7 @@ export const pointerDown = (
   if (hit?.role === 'body' && tool === 'select') {
     const feature = value.find((candidate) => candidate.id === hit.featureId)
     const wasSelected = selectedId === hit.featureId
-    const movable =
-      feature?.geometry.type === 'Point'
-        ? options.moveBy === 'body' || wasSelected
-        : feature?.geometry.type === 'Polygon' && options.moveBy === 'body'
+    const movable = feature !== undefined && movesByBody(feature, options)
     const selected = {
       ...state,
       selectedId: hit.featureId,
@@ -378,6 +388,8 @@ export const pointerDown = (
   return { state: { ...state, gesture: { kind: 'press', start: input, hit: null } } }
 }
 
+const snapOf = (input: PointerInput) => (input.snapped ? input.lngLat : null)
+
 const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): ReduceResult => {
   if (input.pointerType === 'touch') return { state }
   const { value, options, project } = ctx
@@ -389,6 +401,7 @@ const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): R
         ...state,
         draft: { ...state.draft, cursor: roundPosition(input.lngLat, options.precision) },
         hover: hitTestDraft(state.draft, input.point, project, tolerance),
+        snap: snapOf(input),
       },
     }
   }
@@ -401,7 +414,11 @@ const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): R
     tolerance,
   })
   if (hit?.role === 'body' && effectiveTool(state, value, options) !== 'select') hit = null
-  return { state: sameHit(hit, state.hover) ? state : { ...state, hover: hit } }
+  const snap = snapOf(input)
+  const unchanged =
+    sameHit(hit, state.hover) &&
+    (snap === state.snap || samePosition(snap ?? undefined, state.snap ?? undefined))
+  return { state: unchanged ? state : { ...state, hover: hit, snap } }
 }
 
 export const pointerMove = (
@@ -432,6 +449,7 @@ export const pointerMove = (
         state: {
           ...state,
           gesture: { ...gesture, moved: true },
+          snap: snapOf(input),
           preview: updateFeature(state.preview ?? ctx.value, gesture.ref.featureId, (geometry) =>
             moveVertex(geometry, gesture.ref.ring, gesture.ref.index, position),
           ),
@@ -485,7 +503,7 @@ const translatePreview = (
   )
 
 const commitPreview = (state: DrawState, featureId: string, ctx: ReduceContext): ReduceResult => {
-  const cleared = { ...state, gesture: null, preview: null, lastTap: null }
+  const cleared = { ...state, gesture: null, preview: null, lastTap: null, snap: null }
   // Only the edited shape is taken from the working copy. The app may have added or removed
   // other shapes while the drag ran, and that must survive the commit.
   const edited = state.preview?.find((feature) => feature.id === featureId)
@@ -608,7 +626,7 @@ export const pointerUp = (
 ): ReduceResult => {
   const gesture = state.gesture
   if (!gesture) return { state }
-  const cleared = { ...state, gesture: null, preview: null }
+  const cleared = { ...state, gesture: null, preview: null, snap: null }
   const { time } = release
 
   switch (gesture.kind) {
@@ -768,12 +786,7 @@ export const cursorFor = (state: DrawState, value: DrawFeature[], options: Resol
   if (effectiveTool(state, value, options) !== 'select') return 'crosshair'
   if (hover?.role === 'body') {
     const feature = value.find((candidate) => candidate.id === hover.featureId)
-    const selected = effectiveSelectedId(state, value, options) === hover.featureId
-    if (feature?.geometry.type === 'Point') {
-      return options.moveBy === 'body' || selected ? 'move' : 'pointer'
-    }
-    if (feature?.geometry.type === 'Polygon' && options.moveBy === 'body') return 'move'
-    return 'pointer'
+    return feature && movesByBody(feature, options) ? 'move' : 'pointer'
   }
   return undefined
 }

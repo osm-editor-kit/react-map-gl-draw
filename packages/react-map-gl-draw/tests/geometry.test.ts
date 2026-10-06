@@ -15,6 +15,7 @@ import {
 import { canAddShape, canDeleteShape } from '../src/limits'
 import { featuresFromGeometry, geometryFromFeatures } from '../src/multi'
 import { buildRenderData, moveHandleAnchor } from '../src/renderData'
+import { snapToLines } from '../src/snap'
 import type { DrawFeature, DrawGeometry } from '../src/types'
 
 const triangle = {
@@ -227,7 +228,14 @@ describe('multi geometries', () => {
 })
 
 describe('render data', () => {
-  const idle = { preview: null, draft: null, activeVertex: null, hover: null, gesture: null }
+  const idle = {
+    preview: null,
+    draft: null,
+    activeVertex: null,
+    hover: null,
+    gesture: null,
+    snap: null,
+  }
   const roles = (collection: ReturnType<typeof buildRenderData>) =>
     collection.features.map((f) => f.properties.role)
 
@@ -361,5 +369,61 @@ describe('move handle position', () => {
 
   it('has no position for a shape without corners', () => {
     expect(moveHandleAnchor(feature('e', { type: 'LineString', coordinates: [] }))).toBeNull()
+  })
+})
+
+describe('snapToLines', () => {
+  const project = (position: Position) => ({ x: position[0]!, y: position[1]! })
+  const street = {
+    type: 'LineString' as const,
+    coordinates: [
+      [0, 0],
+      [100, 0],
+      [100, 100],
+    ],
+  }
+
+  it('moves a point onto the nearest place along a line', () => {
+    expect(snapToLines([street], { x: 40, y: 6 }, project, 14)).toEqual([40, 0])
+  })
+
+  it('prefers a corner of the line when the pointer is close to it', () => {
+    expect(snapToLines([street], { x: 96, y: 5 }, project, 14)).toEqual([100, 0])
+  })
+
+  it('returns null when no line is within the radius', () => {
+    expect(snapToLines([street], { x: 40, y: 30 }, project, 14)).toBeNull()
+    expect(snapToLines([], { x: 0, y: 0 }, project, 14)).toBeNull()
+  })
+
+  it('reads the pieces a tiled map delivers: several lines, multi lines, polygon outlines', () => {
+    const pieces = [
+      {
+        type: 'MultiLineString' as const,
+        coordinates: [
+          [
+            [0, 50],
+            [50, 50],
+          ],
+          [
+            [50, 50],
+            [90, 50],
+          ],
+        ],
+      },
+      {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [200, 200],
+            [300, 200],
+            [300, 300],
+            [200, 200],
+          ],
+        ],
+      },
+    ]
+    expect(snapToLines(pieces, { x: 70, y: 55 }, project, 14)).toEqual([70, 50])
+    expect(snapToLines(pieces, { x: 250, y: 196 }, project, 14)).toEqual([250, 200])
   })
 })

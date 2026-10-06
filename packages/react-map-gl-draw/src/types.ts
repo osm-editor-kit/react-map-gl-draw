@@ -1,4 +1,5 @@
 import type { GeoJsonProperties, LineString, Point, Polygon, Position } from 'geojson'
+import type { FilterSpecification } from 'maplibre-gl'
 
 export type DrawGeometry = Point | LineString | Polygon
 
@@ -36,6 +37,8 @@ export type DrawChangeMeta =
   | { reason: 'edit'; featureId: string }
   | { reason: 'delete'; featureId: string }
 
+export type DrawMoveBy = 'handle' | 'body'
+
 export type DrawOptions = {
   value: DrawFeature[]
   /** Called once per finished gesture, never during a drag. */
@@ -44,12 +47,16 @@ export type DrawOptions = {
   enabled?: boolean
   limits?: DrawLimits
   /**
-   * `'body'`: pressing a polygon or point drags it. `'handle'`: the body only selects and a
-   * separate move handle drags the shape. Lines always use the handle, because a press on a
-   * selected line inserts a corner. A point has no handle: with `'handle'` it moves when it is
-   * dragged while selected. Default `'body'`.
+   * How a whole shape is moved.
+   * - `'handle'`: only by the move handle that the selected shape shows. A press on the shape
+   *   itself selects it and leaves the map free to pan.
+   * - `'body'`: by pressing the shape itself and dragging.
+   *
+   * Give one value for both, or one per type. Defaults: polygons `'handle'`, since moving a
+   * whole area is rare and its surface is large; points `'body'`. Lines always use the handle,
+   * because a press on a selected line inserts a corner.
    */
-  moveBy?: 'body' | 'handle'
+  moveBy?: DrawMoveBy | { point?: DrawMoveBy; polygon?: DrawMoveBy }
   /** Tool that is armed while `value` is empty, so the first shape needs no button. */
   emptyTool?: Exclude<DrawTool, 'select'>
   /**
@@ -64,6 +71,22 @@ export type DrawOptions = {
   createId?: () => string
   /** Hit distance in pixels. Defaults: mouse 10, touch 20. */
   tolerance?: { mouse?: number; touch?: number }
+  /**
+   * Snap new and dragged corners to lines of the map that is drawn underneath, for example
+   * the streets of the basemap. Holding Alt places a corner freely.
+   */
+  snap?: DrawSnap
+}
+
+export type DrawSnap = {
+  /** Ids of the style layers to snap to. */
+  layers?: string[]
+  /** Or every line layer of the style that draws this source layer, e.g. `transportation`. */
+  sourceLayer?: string
+  /** Narrows the lines by their properties, e.g. only some road classes. */
+  filter?: FilterSpecification
+  /** How near the pointer has to be, in pixels. Default 14. */
+  radius?: number
 }
 
 export type ScreenPoint = { x: number; y: number }
@@ -97,6 +120,8 @@ export type PointerInput = {
   lngLat: Position
   pointerType: 'mouse' | 'touch'
   time: number
+  /** `lngLat` was moved onto a line of the map; see `DrawOptions.snap`. */
+  snapped?: boolean
 }
 
 export type Gesture =
@@ -126,6 +151,8 @@ export type DrawState = {
   /** Working copy of `value` while a drag runs. Render this instead of `value` when set. */
   preview: DrawFeature[] | null
   hover: Hit | null
+  /** Where the corner under the pointer snaps to, for the indicator. */
+  snap: Position | null
   /** `target` names the corner that was tapped, so two taps on different corners are no double tap. */
   lastTap: { time: number; point: ScreenPoint; target: string | null } | null
   /**

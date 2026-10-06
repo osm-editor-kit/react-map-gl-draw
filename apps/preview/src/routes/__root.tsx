@@ -7,6 +7,7 @@ const pages = [
   { to: '/move-handle', label: 'Move handle' },
   { to: '/custom-styles', label: 'Custom styles' },
   { to: '/limits', label: 'Limits & multi-part' },
+  { to: '/snap', label: 'Snap to streets' },
 ] as const
 
 const RootLayout = () => (

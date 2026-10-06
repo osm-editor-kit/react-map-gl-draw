@@ -30,6 +30,8 @@ export type DrawStyles = {
   midpoint?: SlotStyle<CircleLayerSpecification> | null
   /** Corner handles of the selected shape and of the shape in progress. */
   vertex?: SlotStyle<CircleLayerSpecification> | null
+  /** Ring around the place a corner snaps to; see the `snap` option. */
+  snap?: SlotStyle<CircleLayerSpecification> | null
 }
 
 export type DrawStyleState = { tool: DrawTool; isDrawing: boolean; hasSelection: boolean }
@@ -84,6 +86,15 @@ export const defaultDrawStyles = {
       'circle-stroke-width': 2.5,
     },
   },
+  snap: {
+    paint: {
+      'circle-radius': 11,
+      'circle-color': ACTIVE_COLOR,
+      'circle-opacity': 0.15,
+      'circle-stroke-color': ACTIVE_COLOR,
+      'circle-stroke-width': 2,
+    },
+  },
 } as const satisfies Required<DrawStyles>
 
 export type DrawSlot = keyof DrawStyles
@@ -103,6 +114,7 @@ export const slotFilters = {
   point: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'role'], 'shape']],
   midpoint: ['==', ['get', 'role'], 'midpoint'],
   vertex: ['==', ['get', 'role'], 'vertex'],
+  snap: ['==', ['get', 'role'], 'snap'],
 } as const satisfies Record<DrawSlot, FilterSpecification>
 
 export const slotTypes = {
@@ -111,10 +123,11 @@ export const slotTypes = {
   point: 'circle',
   midpoint: 'circle',
   vertex: 'circle',
+  snap: 'circle',
 } as const satisfies Record<DrawSlot, 'fill' | 'line' | 'circle'>
 
 /** Bottom to top. */
-export const slotOrder = ['fill', 'line', 'point', 'midpoint', 'vertex'] as const
+export const slotOrder = ['fill', 'line', 'point', 'snap', 'midpoint', 'vertex'] as const
 
 export const resolveSlotStyle = (slot: DrawSlot, styles: DrawStyles | undefined) => {
   const custom = styles?.[slot]

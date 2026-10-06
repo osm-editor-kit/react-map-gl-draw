@@ -1,7 +1,14 @@
 import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
 import { Layer, Marker, Source, type LayerProps, type MarkerDragEvent } from 'react-map-gl/maplibre'
 import { useStore } from 'zustand'
-import { handleDrag, handleDragStart, keyDown, pointerUp, sameFeatures } from './reducer'
+import {
+  handleDrag,
+  handleDragStart,
+  keyDown,
+  movesByBody,
+  pointerUp,
+  sameFeatures,
+} from './reducer'
 import { buildRenderData, moveHandleAnchor } from './renderData'
 import { resolveSlotStyle, slotFilters, slotOrder, slotTypes, type DrawStylesInput } from './styles'
 import type { DrawInstance } from './useDraw'
@@ -75,6 +82,7 @@ export const DrawLayers = ({
   const activeVertex = useStore(store, (state) => state.activeVertex)
   const hover = useStore(store, (state) => state.hover)
   const gesture = useStore(store, (state) => state.gesture)
+  const snap = useStore(store, (state) => state.snap)
   const draggingCorner = gesture?.kind === 'vertex'
 
   const data = useMemo(
@@ -82,11 +90,11 @@ export const DrawLayers = ({
       buildRenderData(
         value,
         // Only the kind of gesture matters for rendering, not each step of it.
-        { preview, draft, activeVertex, hover, gesture: draggingCorner ? gesture : null },
+        { preview, draft, activeVertex, hover, snap, gesture: draggingCorner ? gesture : null },
         enabled ? selectedId : null,
       ),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `gesture` is covered by `draggingCorner`
-    [value, preview, draft, activeVertex, hover, draggingCorner, enabled, selectedId],
+    [value, preview, draft, activeVertex, hover, snap, draggingCorner, enabled, selectedId],
   )
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -143,11 +151,7 @@ export const DrawLayers = ({
   const selected = enabled && !draft ? shapes.find((shape) => shape.id === selectedId) : undefined
   const anchor = selected ? moveHandleAnchor(selected) : null
   const showMoveHandle =
-    selected !== undefined &&
-    anchor !== null &&
-    !draggingCorner &&
-    (selected.geometry.type === 'LineString' ||
-      (selected.geometry.type === 'Polygon' && options.moveBy === 'handle'))
+    selected !== undefined && anchor !== null && !draggingCorner && !movesByBody(selected, options)
 
   return (
     <>

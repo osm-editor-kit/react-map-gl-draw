@@ -107,9 +107,10 @@ render it as its own layer and hand only the shape being edited to this package.
 wide is still grabbed within the tolerance of its centre line. Shapes are hit in list order
 (last on top), not in layer order.
 
-**Where `interactiveLayerIds` still belongs.** For the app's own layers next to the drawing,
-and for a future "snap to these layers" option, where `event.features` is exactly the list of
-snap targets.
+**Where rendered-feature queries still belong.** For the app's own layers next to the
+drawing, and for the `snap` option. Snapping asks MapLibre for the basemap's lines near the
+pointer. That data does not change under the pointer, so the reasons above do not apply, and
+the spatial index is exactly what is wanted.
 
 ### Declarative layers
 
@@ -129,8 +130,8 @@ the release is also awaited on `window`.
 
 ### The move handle is a Marker
 
-Dragging a whole line cannot start on the line (that inserts a corner), and with
-`moveBy: 'handle'` a polygon must not move by its body. The handle is a react-map-gl
+Dragging a whole line cannot start on the line (that inserts a corner), and a polygon does
+not move by its body unless `moveBy` says so: moving an area is rare and its surface is large. The handle is a react-map-gl
 `<Marker draggable>`: its dragging already works with mouse and touch and already keeps the
 map from panning. It is the only DOM element the package renders.
 
@@ -143,4 +144,5 @@ map from panning. It is the only DOM element the package renders.
 - **Large shapes.** Hit-testing and render data are recomputed per pointer move over all
   corners of all shapes. This is fine for dozens of shapes with hundreds of corners; it is not
   built for thousands.
-- **No snapping, no undo** (see README).
+- **No routing along streets, no undo** (see README). `snap` places single corners on the
+  map's lines; it does not find the path between two clicks.

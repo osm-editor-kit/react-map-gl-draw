@@ -23,7 +23,7 @@ import type { DrawOptions, DrawShapeType, DrawTool } from './types'
  * options; wrap it in an app hook so the options are written once.
  */
 export const useDraw = (controller: DrawController, drawOptions: DrawOptions) => {
-  const { value: appValue, onChange, enabled = true, ...rest } = drawOptions
+  const { value: appValue, onChange, enabled = true, snap, ...rest } = drawOptions
   const options = resolveOptions(rest)
   const { store } = controller
   const settling = useStore(store, (state) => state.settling)
@@ -35,7 +35,7 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
   const hasActiveVertex = useStore(store, (state) => state.activeVertex !== null)
   const cursor = useStore(store, (state) => cursorFor(state, value, options))
 
-  const { run, mapHandlers } = createDrawHandlers(controller, { appValue, onChange, options })
+  const { run, mapHandlers } = createDrawHandlers(controller, { appValue, onChange, options, snap })
 
   const mapProps: Partial<typeof mapHandlers> & { cursor?: string } = enabled
     ? { ...mapHandlers, ...(cursor ? { cursor } : {}) }

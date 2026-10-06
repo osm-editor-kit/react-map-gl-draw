@@ -7,7 +7,7 @@ import type { DrawFeature, DrawState } from './types'
  * `['case', ['get', 'selected'], yellow, blue]`.
  */
 export type DrawRenderProperties = {
-  role: 'shape' | 'draft' | 'vertex' | 'midpoint'
+  role: 'shape' | 'draft' | 'vertex' | 'midpoint' | 'snap'
   featureId?: string
   shape?: 'point' | 'line' | 'polygon'
   selected?: boolean
@@ -66,7 +66,7 @@ const draftFeatures = (draft: NonNullable<DrawState['draft']>) => {
  */
 export const buildRenderData = (
   value: DrawFeature[],
-  state: Pick<DrawState, 'preview' | 'draft' | 'activeVertex' | 'hover' | 'gesture'>,
+  state: Pick<DrawState, 'preview' | 'draft' | 'activeVertex' | 'hover' | 'gesture' | 'snap'>,
   selectedId: string | null,
 ) => {
   const features: RenderFeature[] = []
@@ -131,6 +131,7 @@ export const buildRenderData = (
   }
 
   if (state.draft) features.push(...draftFeatures(state.draft))
+  if (state.snap) features.push(point(state.snap, { role: 'snap' }))
 
   return { type: 'FeatureCollection', features } satisfies FeatureCollection
 }
@@ -138,7 +139,8 @@ export const buildRenderData = (
 /**
  * Where the move handle sits. It must stay clear of the corners, midpoints and outline, which
  * have their own meaning when pressed.
- * - Polygon: inside it, where a press does nothing else while `moveBy` is `'handle'`.
+ * - Polygon: inside it, where a press does nothing else.
+ * - Point: above it, like a line's handle above its top corner.
  * - Line: above its top corner. A point on the line would cover the place where a press
  *   inserts a corner, and the centre of a bent line lies off the line altogether.
  */

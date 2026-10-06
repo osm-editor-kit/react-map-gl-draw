@@ -1,4 +1,7 @@
+import type { Geometry } from 'geojson'
+import type { FilterSpecification } from 'maplibre-gl'
 import type { DrawController } from './controller'
+import { roundPosition } from './geometry'
 import {
   cancelGesture,
   currentFeatures,
@@ -11,9 +14,11 @@ import {
   type ReduceResult,
   type ResolvedOptions,
 } from './reducer'
+import { snapToLines } from './snap'
 import type {
   DrawFeature,
   DrawOptions,
+  DrawSnap,
   DrawState,
   PointerInput,
   Project,
@@ -32,25 +37,56 @@ const noProject: Project = (position) => ({ x: position[0] ?? 0, y: position[1] 
 type MapLike = {
   project: (lngLat: [number, number]) => { x: number; y: number }
   getCanvas: () => unknown
+  getStyle: () => { layers: { id: string; type: string; 'source-layer'?: string }[] }
+  queryRenderedFeatures: (
+    box: [[number, number], [number, number]],
+    options: { layers: string[]; filter?: FilterSpecification },
+  ) => { geometry: Geometry }[]
 }
 type MapPointerEvent = {
   point: { x: number; y: number }
   lngLat: { lng: number; lat: number }
   target: MapLike
-  originalEvent: { target: unknown }
+  originalEvent: { target: unknown; altKey?: boolean }
   defaultPrevented: boolean
   preventDefault: () => void
 }
 type MapMouseEvent = MapPointerEvent & { originalEvent: { button: number } }
 type MapTouchEvent = MapPointerEvent & { points: unknown[] }
 
-const toInput = (event: MapPointerEvent, pointerType: PointerInput['pointerType']) =>
-  ({
-    point: { x: event.point.x, y: event.point.y },
-    lngLat: [event.lngLat.lng, event.lngLat.lat],
-    pointerType,
-    time: Date.now(),
-  }) satisfies PointerInput
+const DEFAULT_SNAP_RADIUS = 14
+
+/** The nearest place on the map's own lines, as configured by the `snap` option. */
+const snapPosition = (event: MapPointerEvent, snap: DrawSnap, project: Project) => {
+  const map = event.target
+  const { sourceLayer } = snap
+  const layers =
+    snap.layers ??
+    (sourceLayer === undefined
+      ? []
+      : map
+          .getStyle()
+          .layers.filter((layer) => layer.type === 'line' && layer['source-layer'] === sourceLayer)
+          .map((layer) => layer.id))
+  if (layers.length === 0) return null
+  const radius = snap.radius ?? DEFAULT_SNAP_RADIUS
+  const { x, y } = event.point
+  // Rendered features are the right source here: the basemap does not change under the
+  // pointer, and the query is limited to the few lines near it.
+  const features = map.queryRenderedFeatures(
+    [
+      [x - radius, y - radius],
+      [x + radius, y + radius],
+    ],
+    snap.filter ? { layers, filter: snap.filter } : { layers },
+  )
+  return snapToLines(
+    features.map((feature) => feature.geometry),
+    { x, y },
+    project,
+    radius,
+  )
+}
 
 const projectWith =
   (map: MapLike): Project =>
@@ -68,6 +104,7 @@ type HandlerContext = {
   appValue: DrawFeature[]
   onChange: DrawOptions['onChange']
   options: ResolvedOptions
+  snap?: DrawSnap
 }
 
 /**
@@ -76,7 +113,7 @@ type HandlerContext = {
  */
 export const createDrawHandlers = (
   { store, pointer }: DrawController,
-  { appValue, onChange, options }: HandlerContext,
+  { appValue, onChange, options, snap }: HandlerContext,
 ) => {
   const run = (
     reduce: (state: DrawState, ctx: ReduceContext) => ReduceResult,
@@ -138,10 +175,8 @@ export const createDrawHandlers = (
     if (event.defaultPrevented || !isOnCanvas(event)) return
     const project = projectWith(event.target)
     const { draft, lastTap } = store.getState()
-    const result = run(
-      (state, ctx) => pointerDown(state, toInput(event, pointerType), ctx),
-      project,
-    )
+    const input = toInput(event, pointerType, project)
+    const result = run((state, ctx) => pointerDown(state, input, ctx), project)
     listenForRelease(project, pointerType)
     // The second tap of a double tap finishes the shape; MapLibre must not zoom on it.
     const finishingTap =
@@ -156,10 +191,39 @@ export const createDrawHandlers = (
     const project = projectWith(event.target)
     // Keeps a release outside the map tied to this render's `onChange`.
     if (pointer.isListeningForRelease()) listenForRelease(project, pointerType)
-    run((state, ctx) => pointerMove(state, toInput(event, pointerType), ctx), project)
+    const input = toInput(event, pointerType, project)
+    run((state, ctx) => pointerMove(state, input, ctx), project)
   }
 
   const pointOf = (event: MapPointerEvent) => ({ x: event.point.x, y: event.point.y })
+
+  /**
+   * Corners snap: the next corner of a shape being drawn or about to be drawn, and a corner
+   * that is dragged. A whole shape that is moved does not, and Alt switches snapping off.
+   */
+  const toInput = (
+    event: MapPointerEvent,
+    pointerType: PointerInput['pointerType'],
+    project: Project,
+  ) => {
+    const raw = {
+      point: { x: event.point.x, y: event.point.y },
+      lngLat: [event.lngLat.lng, event.lngLat.lat],
+      pointerType,
+      time: Date.now(),
+    } satisfies PointerInput
+    if (!snap || event.originalEvent.altKey) return raw
+    const state = store.getState()
+    const placesCorner =
+      state.draft !== null ||
+      state.gesture?.kind === 'vertex' ||
+      (state.gesture === null &&
+        effectiveTool(state, currentFeatures(state, appValue), options) !== 'select')
+    const snapped = placesCorner ? snapPosition(event, snap, project) : null
+    return snapped
+      ? { ...raw, lngLat: roundPosition(snapped, options.precision), snapped: true }
+      : raw
+  }
 
   const mapHandlers = {
     onMouseDown: (event: MapMouseEvent) => {

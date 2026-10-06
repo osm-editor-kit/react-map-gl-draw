@@ -16,7 +16,9 @@ export type {
   DrawFeature,
   DrawGeometry,
   DrawLimits,
+  DrawMoveBy,
   DrawOptions,
   DrawShapeType,
+  DrawSnap,
   DrawTool,
 } from './types'

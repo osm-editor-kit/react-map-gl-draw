@@ -208,3 +208,8 @@ body {
     border-top: 1px solid #e5e7eb;
   }
 }
+.side ul.checks {
+  list-style: none;
+  padding-left: 0;
+  columns: 2;
+}

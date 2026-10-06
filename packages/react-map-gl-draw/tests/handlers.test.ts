@@ -7,9 +7,34 @@ import type { DrawChangeMeta, DrawFeature, DrawOptions } from '../src/types'
 // A map whose pixels are not its degrees, so a missing projection cannot pass by accident.
 const SCALE = 10_000
 const canvas = { tag: 'canvas' }
+// One street of the basemap, running left to right at y = 300 px.
+const street = {
+  geometry: {
+    type: 'LineString' as const,
+    coordinates: [
+      [0, 300 / SCALE],
+      [1000 / SCALE, 300 / SCALE],
+    ],
+  },
+}
+const queries: { layers: string[] }[] = []
 const map = {
   project: ([lng, lat]: [number, number]) => ({ x: lng * SCALE, y: lat * SCALE }),
   getCanvas: () => canvas,
+  getStyle: () => ({
+    layers: [
+      { id: 'road-minor', type: 'line', 'source-layer': 'transportation' },
+      { id: 'road-label', type: 'symbol', 'source-layer': 'transportation' },
+      { id: 'water', type: 'line', 'source-layer': 'water' },
+    ],
+  }),
+  queryRenderedFeatures: (
+    box: [[number, number], [number, number]],
+    options: { layers: string[] },
+  ) => {
+    queries.push(options)
+    return box[0][1] <= 300 && box[1][1] >= 300 ? [street] : []
+  },
 }
 
 type WindowListener = (event: { button: number }) => void
@@ -43,7 +68,7 @@ afterEach(() => {
 /** An app around the handlers: it applies `onChange` like a component with `useState` would. */
 const app = (
   initial: DrawFeature[] = [],
-  drawOptions: Omit<DrawOptions, 'value' | 'onChange'> = {},
+  { snap, ...drawOptions }: Omit<DrawOptions, 'value' | 'onChange'> = {},
   { applyChanges = true } = {},
 ) => {
   let id = 0
@@ -58,17 +83,26 @@ const app = (
       createDrawHandlers(controller, {
         appValue: self.value,
         options,
+        snap,
         onChange: (next, meta) => {
           self.changes.push(meta)
           if (applyChanges) self.value = next
         },
       }).mapHandlers,
-    event: (x: number, y: number, extra: { target?: unknown; button?: number } = {}) => {
+    event: (
+      x: number,
+      y: number,
+      extra: { target?: unknown; button?: number; altKey?: boolean } = {},
+    ) => {
       const event = {
         point: { x, y },
         lngLat: { lng: x / SCALE, lat: y / SCALE },
         target: map,
-        originalEvent: { target: extra.target ?? canvas, button: extra.button ?? 0 },
+        originalEvent: {
+          target: extra.target ?? canvas,
+          button: extra.button ?? 0,
+          altKey: extra.altKey ?? false,
+        },
         points: [{ x, y }],
         defaultPrevented: false,
         preventDefault: () => {
@@ -291,5 +325,63 @@ describe('settling', () => {
     a.handlers().onMouseMove(a.event(700, 700))
     a.value = [square]
     expect(a.shown()).toEqual([square])
+  })
+})
+
+describe('snapping to lines of the map', () => {
+  const snap = { sourceLayer: 'transportation' }
+  const lineOf = (feature: DrawFeature | undefined) =>
+    feature?.geometry.type === 'LineString' ? feature.geometry.coordinates : []
+
+  it('puts new corners onto a street and shows where the next one would land', () => {
+    const a = app([], { emptyTool: 'line', snap })
+    a.handlers().onMouseMove(a.event(100, 308))
+    expect(a.controller.store.getState().snap).toEqual(at(100, 300))
+    a.click(100, 308)
+    a.click(400, 292)
+    a.handlers().onMouseDown(a.event(400, 292))
+    a.handlers().onMouseUp(a.event(400, 292))
+    expect(lineOf(a.value[0])).toEqual([at(100, 300), at(400, 300)])
+  })
+
+  it('asks only the line layers of the configured source layer', () => {
+    queries.length = 0
+    const a = app([], { emptyTool: 'line', snap })
+    a.handlers().onMouseMove(a.event(100, 308))
+    expect(queries.at(-1)?.layers).toEqual(['road-minor'])
+  })
+
+  it('leaves a corner where it is when no street is near, or while Alt is held', () => {
+    const a = app([], { emptyTool: 'point', snap })
+    a.click(100, 500)
+    expect(a.value[0]?.geometry.coordinates).toEqual(at(100, 500))
+
+    const b = app([], { emptyTool: 'point', snap })
+    b.handlers().onMouseDown(b.event(100, 308, { altKey: true }))
+    b.handlers().onMouseUp(b.event(100, 308, { altKey: true }))
+    expect(b.value[0]?.geometry.coordinates).toEqual(at(100, 308))
+  })
+
+  it('snaps a corner that is dragged, but not a shape that is moved', () => {
+    const a = app([square], { selectSingle: true, snap })
+    a.handlers().onMouseDown(a.event(200, 200))
+    a.handlers().onMouseMove(a.event(240, 250))
+    a.handlers().onMouseMove(a.event(260, 305))
+    a.handlers().onMouseUp(a.event(260, 305))
+    expect(ringOf(a.value[0])[2]).toEqual(at(260, 300))
+
+    const b = app([square], { snap, moveBy: 'body' })
+    b.handlers().onMouseDown(b.event(150, 150))
+    b.handlers().onMouseMove(b.event(150, 200))
+    b.handlers().onMouseMove(b.event(150, 255))
+    b.handlers().onMouseUp(b.event(150, 255))
+    // Moved by exactly the pointer's 105 px, although the street lies along the way.
+    expect(ringOf(b.value[0])[0]).toEqual(at(100, 205))
+  })
+
+  it('does not snap while nothing would place a corner', () => {
+    const a = app([square], { snap })
+    a.handlers().onMouseMove(a.event(500, 302))
+    expect(a.controller.store.getState().snap).toBeNull()
   })
 })
