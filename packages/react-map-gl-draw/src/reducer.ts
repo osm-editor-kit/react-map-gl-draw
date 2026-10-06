@@ -388,7 +388,8 @@ export const pointerDown = (
   return { state: { ...state, gesture: { kind: 'press', start: input, hit: null } } }
 }
 
-const snapOf = (input: PointerInput) => (input.snapped ? input.lngLat : null)
+const snapOf = (input: PointerInput) =>
+  input.snapped ? { position: input.lngLat, junction: input.snapped === 'junction' } : null
 
 const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): ReduceResult => {
   if (input.pointerType === 'touch') return { state }
@@ -417,7 +418,8 @@ const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): R
   const snap = snapOf(input)
   const unchanged =
     sameHit(hit, state.hover) &&
-    (snap === state.snap || samePosition(snap ?? undefined, state.snap ?? undefined))
+    snap?.junction === state.snap?.junction &&
+    (snap === state.snap || samePosition(snap?.position, state.snap?.position))
   return { state: unchanged ? state : { ...state, hover: hit, snap } }
 }
 

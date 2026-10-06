@@ -120,8 +120,11 @@ export type PointerInput = {
   lngLat: Position
   pointerType: 'mouse' | 'touch'
   time: number
-  /** `lngLat` was moved onto a line of the map; see `DrawOptions.snap`. */
-  snapped?: boolean
+  /**
+   * `lngLat` was moved onto a line of the map, or onto a place where three or more of them
+   * meet; see `DrawOptions.snap`.
+   */
+  snapped?: 'line' | 'junction'
 }
 
 export type Gesture =
@@ -152,7 +155,7 @@ export type DrawState = {
   preview: DrawFeature[] | null
   hover: Hit | null
   /** Where the corner under the pointer snaps to, for the indicator. */
-  snap: Position | null
+  snap: { position: Position; junction: boolean } | null
   /** `target` names the corner that was tapped, so two taps on different corners are no double tap. */
   lastTap: { time: number; point: ScreenPoint; target: string | null } | null
   /**

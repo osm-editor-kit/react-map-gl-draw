@@ -336,7 +336,7 @@ describe('snapping to lines of the map', () => {
   it('puts new corners onto a street and shows where the next one would land', () => {
     const a = app([], { emptyTool: 'line', snap })
     a.handlers().onMouseMove(a.event(100, 308))
-    expect(a.controller.store.getState().snap).toEqual(at(100, 300))
+    expect(a.controller.store.getState().snap).toEqual({ position: at(100, 300), junction: false })
     a.click(100, 308)
     a.click(400, 292)
     a.handlers().onMouseDown(a.event(400, 292))

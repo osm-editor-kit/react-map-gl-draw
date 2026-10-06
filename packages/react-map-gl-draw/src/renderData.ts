@@ -15,6 +15,8 @@ export type DrawRenderProperties = {
   active?: boolean
   /** Draft corner that finishes the shape when clicked. */
   closing?: boolean
+  /** Snap indicator: three or more lines of the map meet here. */
+  junction?: boolean
 }
 
 type RenderFeature = Feature<DrawFeature['geometry'], DrawRenderProperties>
@@ -131,7 +133,9 @@ export const buildRenderData = (
   }
 
   if (state.draft) features.push(...draftFeatures(state.draft))
-  if (state.snap) features.push(point(state.snap, { role: 'snap' }))
+  if (state.snap) {
+    features.push(point(state.snap.position, { role: 'snap', junction: state.snap.junction }))
+  }
 
   return { type: 'FeatureCollection', features } satisfies FeatureCollection
 }

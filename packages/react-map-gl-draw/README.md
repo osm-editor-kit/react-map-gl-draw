@@ -215,6 +215,8 @@ snap: {
 
 - New corners, dragged corners and a continued line snap. A shape moved as a whole does not.
 - A ring (style slot `snap`) shows where the corner under the pointer would land.
+- Where three or more streets meet, the ring is larger and filled, and it pulls from further
+  away. In the style, the feature property `junction` is `true` there.
 - A corner of the street wins over a spot along it when the pointer is close, so shapes meet
   streets at their bends and crossings.
 - Hold Alt to place a corner freely. Leave `snap` out to switch snapping off.
@@ -268,15 +270,16 @@ merged over the defaults key by key. `null` removes a layer.
 
 State reaches the style as feature properties:
 
-| Property    | On               | Meaning                                                        |
-| ----------- | ---------------- | -------------------------------------------------------------- |
-| `role`      | all              | `'shape'`, `'draft'` (being drawn), `'vertex'` or `'midpoint'` |
-| `shape`     | shapes, drafts   | `'point'`, `'line'` or `'polygon'`                             |
-| `selected`  | shapes           | The shape is selected                                          |
-| `active`    | vertex, midpoint | Under the pointer, or the corner touched last                  |
-| `closing`   | vertex           | A click here finishes the shape being drawn                    |
-| `featureId` | shapes, handles  | The shape's id                                                 |
-| your own    | shapes           | Everything in the shape's `properties`                         |
+| Property    | On               | Meaning                                                                  |
+| ----------- | ---------------- | ------------------------------------------------------------------------ |
+| `role`      | all              | `'shape'`, `'draft'` (being drawn), `'vertex'`, `'midpoint'` or `'snap'` |
+| `shape`     | shapes, drafts   | `'point'`, `'line'` or `'polygon'`                                       |
+| `selected`  | shapes           | The shape is selected                                                    |
+| `active`    | vertex, midpoint | Under the pointer, or the corner touched last                            |
+| `closing`   | vertex           | A click here finishes the shape being drawn                              |
+| `junction`  | snap             | Three or more lines of the map meet at the snap position                 |
+| `featureId` | shapes, handles  | The shape's id                                                           |
+| your own    | shapes           | Everything in the shape's `properties`                                   |
 
 ```tsx
 <DrawLayers

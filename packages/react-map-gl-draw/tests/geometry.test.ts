@@ -374,21 +374,18 @@ describe('move handle position', () => {
 
 describe('snapToLines', () => {
   const project = (position: Position) => ({ x: position[0]!, y: position[1]! })
-  const street = {
-    type: 'LineString' as const,
-    coordinates: [
-      [0, 0],
-      [100, 0],
-      [100, 100],
-    ],
-  }
+  const line = (...coordinates: Position[]) => ({ type: 'LineString' as const, coordinates })
+  const street = line([0, 0], [100, 0], [100, 100])
 
   it('moves a point onto the nearest place along a line', () => {
-    expect(snapToLines([street], { x: 40, y: 6 }, project, 14)).toEqual([40, 0])
+    expect(snapToLines([street], { x: 40, y: 6 }, project, 14)).toEqual({
+      position: [40, 0],
+      junction: false,
+    })
   })
 
   it('prefers a corner of the line when the pointer is close to it', () => {
-    expect(snapToLines([street], { x: 96, y: 5 }, project, 14)).toEqual([100, 0])
+    expect(snapToLines([street], { x: 96, y: 5 }, project, 14)?.position).toEqual([100, 0])
   })
 
   it('returns null when no line is within the radius', () => {
@@ -423,7 +420,59 @@ describe('snapToLines', () => {
         ],
       },
     ]
-    expect(snapToLines(pieces, { x: 70, y: 55 }, project, 14)).toEqual([70, 50])
-    expect(snapToLines(pieces, { x: 250, y: 196 }, project, 14)).toEqual([250, 200])
+    expect(snapToLines(pieces, { x: 70, y: 55 }, project, 14)?.position).toEqual([70, 50])
+    expect(snapToLines(pieces, { x: 250, y: 196 }, project, 14)?.position).toEqual([250, 200])
+  })
+
+  describe('junctions', () => {
+    const through = line([0, 100], [100, 100], [200, 100])
+    const side = line([100, 100], [100, 0])
+
+    it('marks a place where three streets meet, and pulls from further away', () => {
+      expect(snapToLines([through, side], { x: 109, y: 106 }, project, 14)).toEqual({
+        position: [100, 100],
+        junction: true,
+      })
+    })
+
+    it('does not call a bend or the joint between two tiles a junction', () => {
+      const bend = snapToLines([street], { x: 98, y: 3 }, project, 14)
+      expect(bend).toEqual({ position: [100, 0], junction: false })
+      const tileJoint = snapToLines(
+        [line([0, 0], [100, 0]), line([100, 0], [200, 0])],
+        { x: 101, y: 2 },
+        project,
+        14,
+      )
+      expect(tileJoint?.junction).toBe(false)
+    })
+
+    it('counts a street once when the map delivers it several times', () => {
+      const twice = snapToLines(
+        [through, through, line([100, 100], [200, 100])],
+        { x: 101, y: 102 },
+        project,
+        14,
+      )
+      expect(twice?.junction).toBe(false)
+    })
+
+    it('sees a side street that ends on a street without a corner there', () => {
+      const straight = line([0, 100], [200, 100])
+      expect(snapToLines([straight, side], { x: 102, y: 97 }, project, 14)).toEqual({
+        position: [100, 100],
+        junction: true,
+      })
+    })
+
+    it('finds a four-way crossing', () => {
+      const result = snapToLines(
+        [line([0, 100], [200, 100]), line([100, 0], [100, 100], [100, 200])],
+        { x: 104, y: 104 },
+        project,
+        14,
+      )
+      expect(result).toEqual({ position: [100, 100], junction: true })
+    })
   })
 })

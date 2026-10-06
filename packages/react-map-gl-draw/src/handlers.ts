@@ -220,9 +220,12 @@ export const createDrawHandlers = (
       (state.gesture === null &&
         effectiveTool(state, currentFeatures(state, appValue), options) !== 'select')
     const snapped = placesCorner ? snapPosition(event, snap, project) : null
-    return snapped
-      ? { ...raw, lngLat: roundPosition(snapped, options.precision), snapped: true }
-      : raw
+    if (!snapped) return raw
+    return {
+      ...raw,
+      lngLat: roundPosition(snapped.position, options.precision),
+      snapped: snapped.junction ? ('junction' as const) : ('line' as const),
+    }
   }
 
   const mapHandlers = {
