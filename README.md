@@ -6,8 +6,8 @@ component: shapes in, `onChange` out, styled with ordinary layer styles.
 
 Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
 
-**Package:** [`@osm-editor-kit/react-map-gl-draw`](packages/react-map-gl-draw) (see its README
-for the API) · **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
+**Package:** [`@osm-editor-kit/react-map-gl-draw`](https://npmx.dev/package/@osm-editor-kit/react-map-gl-draw)
+on npm (see [its README](packages/react-map-gl-draw) for the API) · **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
 
 This is a Bun-workspaces monorepo:
 

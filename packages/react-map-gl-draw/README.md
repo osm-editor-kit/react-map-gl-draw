@@ -14,9 +14,10 @@ component.
   `map.addLayer`, `map.on` or `useControl`, so style changes and Strict Mode need no handling.
 
 Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
-**Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
+**npm:** [`@osm-editor-kit/react-map-gl-draw`](https://npmx.dev/package/@osm-editor-kit/react-map-gl-draw)
+· **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
 
-> Status: `0.0.x`, not published to npm yet. The API may still change. Mouse input is exercised
+> Status: `0.0.x`. The API may still change. Mouse input is exercised
 > on two drawing surfaces of [TILDA](https://tilda-geo.de); touch input is implemented and passes a
 > simulated touch drag in Chromium, but has not been verified on real devices yet.
 
