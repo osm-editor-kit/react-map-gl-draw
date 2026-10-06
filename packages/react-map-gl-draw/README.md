@@ -135,6 +135,8 @@ It decides what a press on empty map does. What is under the pointer comes first
 Also:
 
 - Double click, Enter, or a click on the last corner finishes a line or polygon.
+- A click on the first or last corner of a selected line continues the line from there.
+  Escape leaves the line as it was.
 - Escape cancels the shape being drawn, or a drag in progress.
 - Backspace removes the last corner while drawing.
 - Delete removes the corner touched last, or the selected shape. A double click on a corner
