@@ -304,6 +304,30 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 - Snapping, rectangles, circles, rotation and scaling.
 - Editing `Multi*` geometries as one shape; split them with `featuresFromGeometry`.
 
+## Thanks to TerraDraw
+
+This package exists because of [TerraDraw](https://github.com/JamesLMilner/terra-draw) by James
+Milner. We used it in production first, and it taught us what the interactions should feel
+like: midpoint handles, closing a polygon on its first corner, screen-space hit-testing with a
+pixel tolerance. If you are not building on react-map-gl, or you need snapping, rectangles,
+circles or undo out of the box, use TerraDraw.
+
+We wrote our own because of how our apps hold their data, not because of a fault in TerraDraw.
+TerraDraw is built to work with any map library and any framework. To do that it owns a
+feature store, listens on the map canvas itself and adds its own layers. Our apps already own
+the shapes (in a URL, a form field, a query cache) and already describe their map as
+`<Source>` and `<Layer>` elements. Joining the two gave us two copies of every shape, and most
+of our integration code did nothing but keep them in step:
+
+- telling a change we wrote into TerraDraw apart from one the user made,
+- waiting for the map style before starting, and rebuilding TerraDraw's layers after a style
+  change,
+- mirroring selection and "can I add another shape" out of TerraDraw's events,
+- splitting `Multi*` geometries on the way in and combining them on the way out.
+
+A drawing tool that is a controlled React component has none of that to do. That narrower job,
+for react-map-gl only, is what this package is.
+
 ## License
 
 MIT
