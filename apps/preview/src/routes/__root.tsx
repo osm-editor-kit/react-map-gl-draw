@@ -8,6 +8,7 @@ const pages = [
   { to: '/limits', label: 'Limits & multi-part' },
   { to: '/snap', label: 'Snap to streets' },
   { to: '/undo', label: 'Undo & redo' },
+  { to: '/loupe', label: 'Loupe' },
 ] as const
 
 const RootLayout = () => (

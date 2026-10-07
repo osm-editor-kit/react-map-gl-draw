@@ -88,6 +88,7 @@ export const initialDrawState: DrawState = {
   preview: null,
   hover: null,
   snap: null,
+  pointer: null,
   lastTap: null,
   settling: null,
 }
@@ -537,7 +538,47 @@ const hoverMove = (state: DrawState, input: PointerInput, ctx: ReduceContext): R
   return { state: unchanged ? state : { ...state, hover: hit, snap } }
 }
 
+/**
+ * Remembers where the pointer is while it places or drags a corner; see `DrawState.pointer`.
+ * Runs after the move was reduced, so it sees the gesture the move ended in.
+ */
+const trackPointer = (state: DrawState, input: PointerInput, ctx: ReduceContext) => {
+  const { gesture } = state
+  const placesCorner =
+    gesture?.kind === 'vertex' ||
+    (gesture === null &&
+      input.pointerType === 'mouse' &&
+      (state.draft !== null || effectiveTool(state, ctx.value, ctx.options) !== 'select'))
+  if (!placesCorner) return state.pointer === null ? state : { ...state, pointer: null }
+  const position = roundPosition(input.lngLat, ctx.options.precision)
+  return { ...state, pointer: { position, point: input.point } }
+}
+
 export const pointerMove = (
+  state: DrawState,
+  input: PointerInput,
+  ctx: ReduceContext,
+): ReduceResult => {
+  const result = reducePointerMove(state, input, ctx)
+  return { ...result, state: trackPointer(result.state, input, ctx) }
+}
+
+/** The pointer left the map: nothing is under it any more. */
+export const pointerLeave = (state: DrawState): ReduceResult => {
+  if (state.gesture !== null || (state.pointer === null && state.draft?.cursor == null)) {
+    return { state }
+  }
+  return {
+    state: {
+      ...state,
+      pointer: null,
+      snap: null,
+      draft: state.draft ? { ...state.draft, cursor: null } : null,
+    },
+  }
+}
+
+const reducePointerMove = (
   state: DrawState,
   input: PointerInput,
   ctx: ReduceContext,

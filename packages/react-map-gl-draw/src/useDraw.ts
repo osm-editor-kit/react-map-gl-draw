@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { useStore } from 'zustand'
 import type { DrawController } from './controller'
+import { draftGeometryOf, focusOf } from './focus'
 import { createDrawHandlers } from './handlers'
 import { canRedoHistory, canUndoHistory, createDrawHistory } from './history'
 import { canAddShape, canDeleteShape, shapeTypeOfTool } from './limits'
@@ -136,4 +138,34 @@ export const useDrawPreview = (controller: DrawController, value: DrawOptions['v
   const preview = useStore(controller.store, (state) => state.preview)
   const settling = useStore(controller.store, (state) => state.settling)
   return preview ?? currentFeatures({ settling }, value)
+}
+
+/**
+ * The shape that is still being drawn, as a `LineString` or `Polygon` that ends at the
+ * pointer. `null` while nothing is drawn or the shape has fewer than two corners. Use it to
+ * show a value for the shape before it is finished, e.g. its length.
+ */
+export const useDrawDraft = (draw: DrawInstance) => {
+  const draft = useStore(draw.internal.controller.store, (state) => state.draft)
+  return useMemo(() => draftGeometryOf(draft), [draft])
+}
+
+/**
+ * The corner the user is placing or dragging right now, on the `precision` grid and snapped
+ * like it will be stored; `null` while no corner is worked on. Changes on every pointer
+ * move, so read it in a small component.
+ */
+export const useDrawFocus = (draw: DrawInstance) => {
+  const { controller, value, enabled } = draw.internal
+  const { store } = controller
+  const gesture = useStore(store, (state) => state.gesture)
+  const draft = useStore(store, (state) => state.draft)
+  const preview = useStore(store, (state) => state.preview)
+  const snap = useStore(store, (state) => state.snap)
+  const pointer = useStore(store, (state) => state.pointer)
+  const { tool } = draw
+  return useMemo(
+    () => (enabled ? focusOf({ gesture, draft, preview, snap, pointer }, value, tool) : null),
+    [enabled, gesture, draft, preview, snap, pointer, value, tool],
+  )
 }

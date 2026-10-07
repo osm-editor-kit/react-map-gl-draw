@@ -307,6 +307,49 @@ The first click starts the shape without a toolbar button, and its handles alway
 `useDrawPreview(controller, value)` returns the shapes as they look right now, including a
 drag that has not been committed. Use it for a live readout (an area, a sum) while dragging.
 
+`useDrawDraft(draw)` returns the shape that is still being drawn as a `LineString` or
+`Polygon` that ends at the pointer, or `null`. Use it to show a value before the shape is
+finished, e.g. the length of a line.
+
+`useDrawFocus(draw)` returns the corner the user is placing or dragging right now as
+`{ position, point }`, or `null`. `position` is on the `precision` grid and snapped, so it is
+what would be stored; `point` is the pointer in pixels. It changes on every pointer move, so
+read it in a small component.
+
+## Loupe
+
+`<DrawLoupe>` is a magnifier for exact corners: a small second map that follows the corner
+being placed or dragged, with a crosshair on it. It shows while a tool is armed, while a
+shape is drawn and while a corner is dragged. It docks in a corner of the map and changes to
+another one when the pointer comes near.
+
+```tsx
+<Map {...draw.mapProps}>
+  <DrawLayers draw={draw} />
+  <DrawLoupe draw={draw} zoom={20}>
+    <Source id="aerial" type="raster" tiles={[aerialTiles]} tileSize={256} maxzoom={20} />
+    <Layer id="aerial" type="raster" source="aerial" />
+  </DrawLoupe>
+</Map>
+```
+
+The children are the sources and layers the loupe shows, typically the imagery of the main
+map. They live in the loupe's own map, so their ids may repeat those of the main map. The
+loupe requests its own tiles, at `zoom`.
+
+| Prop         | Meaning                                                                           |
+| ------------ | --------------------------------------------------------------------------------- |
+| `zoom`       | Zoom of the loupe, e.g. the highest zoom the imagery has tiles for.               |
+| `mapStyle`   | Style of the loupe's map. Default: empty, so only the children show.              |
+| `size`       | Width and height in pixels. Default 160.                                          |
+| `corners`    | Where it docks, in order of preference. Default `['top-left', 'top-right']`.      |
+| `inset`      | Distance to the map's edges, a number or per side, e.g. to keep clear of a panel. |
+| `margin`     | How close the pointer may come before the loupe changes its corner. Default 48.   |
+| `shapeColor` | Color of the drawn shapes inside the loupe; `null` hides them.                    |
+| `crosshair`  | Replaces the default crosshair.                                                   |
+| `hidden`     | Hides it, e.g. while the main map is zoomed out too far for exact corners.        |
+| `mapId`      | Id of the loupe's map for `MapProvider`. Default `draw-loupe`.                    |
+
 ## Styling
 
 `<DrawLayers>` renders one GeoJSON source and six layers. Pass layer styles per slot; they are

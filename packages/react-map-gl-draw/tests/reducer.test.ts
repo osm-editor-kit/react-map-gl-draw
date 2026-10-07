@@ -9,6 +9,7 @@ import {
   initialDrawState,
   keyDown,
   pointerDown,
+  pointerLeave,
   pointerMove,
   pointerUp,
   resolveOptions,
@@ -784,5 +785,48 @@ describe('closing a line into a polygon', () => {
     for (let x = 110; x <= 300; x += 10) s.move(x, 100 + (x % 20 === 0 ? 30 : 0))
     s.up()
     expect(s.value[0]?.geometry.type).toBe('LineString')
+  })
+})
+
+describe('pointer tracking', () => {
+  it('follows the pointer while a tool is armed, on the precision grid', () => {
+    const s = surface([], { precision: 2 })
+    s.tool('line')
+    s.move(123, 456)
+    expect(s.state.pointer).toEqual({ position: [0.12, 0.46], point: { x: 123, y: 456 } })
+  })
+
+  it('does not follow the pointer of the select tool', () => {
+    const s = surface([square()])
+    s.move(150, 150)
+    expect(s.state.pointer).toBeNull()
+  })
+
+  it('follows a dragged corner and forgets the pointer while the map is panned', () => {
+    const s = surface([square()])
+    s.click(150, 150)
+    s.down(100, 100)
+    s.move(90, 90)
+    expect(s.state.pointer?.point).toEqual({ x: 90, y: 90 })
+    s.up()
+
+    s.tool('line')
+    s.move(400, 400)
+    s.down(400, 400)
+    s.move(450, 450)
+    expect(s.state.gesture?.kind).toBe('pan')
+    expect(s.state.pointer).toBeNull()
+  })
+
+  it('drops the pointer and the rubber band when the pointer leaves the map', () => {
+    const s = surface()
+    s.tool('line')
+    s.click(100, 100)
+    s.move(200, 200)
+    expect(s.state.draft?.cursor).not.toBeNull()
+    s.apply(pointerLeave(s.state))
+    expect(s.state.pointer).toBeNull()
+    expect(s.state.draft?.cursor).toBeNull()
+    expect(s.state.draft?.coordinates).toHaveLength(1)
   })
 })

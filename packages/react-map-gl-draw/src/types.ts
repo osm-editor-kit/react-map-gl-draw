@@ -186,6 +186,11 @@ export type DrawState = {
   hover: Hit | null
   /** Where the corner under the pointer snaps to, for the indicator. */
   snap: { position: Position; junction: boolean } | null
+  /**
+   * Where the pointer is while it places or drags a corner, on the `precision` grid. `null`
+   * otherwise (select tool, panning, pointer outside the map); see `useDrawFocus`.
+   */
+  pointer: { position: Position; point: ScreenPoint } | null
   /** `target` names the corner that was tapped, so two taps on different corners are no double tap. */
   lastTap: { time: number; point: ScreenPoint; target: string | null } | null
   /**

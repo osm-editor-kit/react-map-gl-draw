@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CustomStylesRouteImport } from './routes/custom-styles'
 import { Route as LimitsRouteImport } from './routes/limits'
+import { Route as LoupeRouteImport } from './routes/loupe'
 import { Route as MoveHandleRouteImport } from './routes/move-handle'
 import { Route as SinglePolygonRouteImport } from './routes/single-polygon'
 import { Route as SnapRouteImport } from './routes/snap'
@@ -30,6 +31,11 @@ const CustomStylesRoute = CustomStylesRouteImport.update({
 const LimitsRoute = LimitsRouteImport.update({
   id: '/limits',
   path: '/limits',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoupeRoute = LoupeRouteImport.update({
+  id: '/loupe',
+  path: '/loupe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoveHandleRoute = MoveHandleRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/custom-styles': typeof CustomStylesRoute
   '/limits': typeof LimitsRoute
+  '/loupe': typeof LoupeRoute
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/custom-styles': typeof CustomStylesRoute
   '/limits': typeof LimitsRoute
+  '/loupe': typeof LoupeRoute
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/custom-styles': typeof CustomStylesRoute
   '/limits': typeof LimitsRoute
+  '/loupe': typeof LoupeRoute
   '/move-handle': typeof MoveHandleRoute
   '/single-polygon': typeof SinglePolygonRoute
   '/snap': typeof SnapRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-styles'
     | '/limits'
+    | '/loupe'
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-styles'
     | '/limits'
+    | '/loupe'
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/custom-styles'
     | '/limits'
+    | '/loupe'
     | '/move-handle'
     | '/single-polygon'
     | '/snap'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CustomStylesRoute: typeof CustomStylesRoute
   LimitsRoute: typeof LimitsRoute
+  LoupeRoute: typeof LoupeRoute
   MoveHandleRoute: typeof MoveHandleRoute
   SinglePolygonRoute: typeof SinglePolygonRoute
   SnapRoute: typeof SnapRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/limits'
       fullPath: '/limits'
       preLoaderRoute: typeof LimitsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/loupe': {
+      id: '/loupe'
+      path: '/loupe'
+      fullPath: '/loupe'
+      preLoaderRoute: typeof LoupeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/move-handle': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CustomStylesRoute: CustomStylesRoute,
   LimitsRoute: LimitsRoute,
+  LoupeRoute: LoupeRoute,
   MoveHandleRoute: MoveHandleRoute,
   SinglePolygonRoute: SinglePolygonRoute,
   SnapRoute: SnapRoute,

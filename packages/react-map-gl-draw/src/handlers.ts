@@ -9,6 +9,7 @@ import {
   effectiveTool,
   sameFeatures,
   pointerDown,
+  pointerLeave,
   pointerMove,
   pointerUp,
   redoDraftCorner,
@@ -290,6 +291,9 @@ export const createDrawHandlers = (
     onMouseUp: (event: MapMouseEvent) => {
       if (event.originalEvent.button !== 0 || pointer.isSyntheticMouse()) return
       release(projectWith(event.target), pointOf(event), 'mouse')
+    },
+    onMouseOut: () => {
+      run(pointerLeave)
     },
     onDblClick: (event: MapMouseEvent) => {
       if (pointer.isDblClickSuppressed()) event.preventDefault()
