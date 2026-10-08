@@ -140,6 +140,8 @@ Also:
   Escape leaves the line as it was.
 - Escape cancels the shape being drawn, or a drag in progress.
 - Backspace removes the last corner while drawing.
+- Cmd/Ctrl+Z takes back the last corner while drawing, otherwise the last change (with
+  `history`). Shift+Cmd/Ctrl+Z or Ctrl+Y brings it back.
 - Delete removes the corner touched last, or the selected shape. A double click on a corner
   removes it too.
 - After a shape is finished the tool returns to `select` and the shape is selected. Set
@@ -153,6 +155,7 @@ Also:
 useDraw(controller, {
   value, // DrawFeature[]
   onChange, // (next, meta) => void; meta = { reason: 'add' | 'edit' | 'delete', featureId }
+  //          or { reason: 'undo' | 'redo' | 'replace' }
   enabled, // false turns interaction off and empties mapProps. Default true.
   limits, // see below
   moveBy, // { point, polygon }: 'handle' | 'body'. Default { point: 'body', polygon: 'handle' }.
@@ -164,6 +167,7 @@ useDraw(controller, {
   createId, // id for a new shape. Default crypto.randomUUID().
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
   snap, // snap corners to lines of the map underneath; see below
+  history, // steps for undo and redo; see below
 })
 ```
 
@@ -237,6 +241,35 @@ tile borders, because each corner is snapped on its own. Positions are as exact 
 at the current zoom; zoom in for exact work. It does not route along streets between two
 clicks.
 
+### `history`
+
+```ts
+const controller = createDrawController()
+const history = createDrawHistory() // { limit: 100 } steps by default
+
+const draw = useDraw(controller, { value, onChange, history })
+
+<button disabled={!draw.canUndo} onClick={draw.undo}>Undo</button>
+<button disabled={!draw.canRedo} onClick={draw.redo}>Redo</button>
+```
+
+Every finished change is one step. Undo and redo call `onChange` with the earlier or later
+value as a whole, so your app applies and saves a step like any other change.
+
+- **While a shape is drawn**, a step is one corner. This also works without `history`.
+- **One history per thing that is edited.** Two drawing surfaces with their own history undo
+  independently. `<DrawLayers>` of a surface that is not `enabled` ignores the keys.
+- **Changes from outside the map** (a delete button in a list) become a step when they go
+  through `draw.replace(next)` instead of your own setter.
+- **The steps belong to the shapes they were recorded on.** When `value` becomes something
+  else without the package (another record is opened, a refetch brings a change, a failed
+  save is rolled back), `canUndo` and `canRedo` are false and the next change starts a new
+  history. Shapes are compared by geometry, not by id, so an app that stores one geometry and
+  hands the parts back with new ids keeps its steps. Call `history.clear()` to drop the steps
+  yourself.
+- The steps are kept in memory. `history.store` is a zustand vanilla store with
+  `{ past, present, future }` if you want to show or persist them.
+
 ### `emptyTool` and `selectSingle`
 
 For a surface that usually has one shape:
@@ -261,6 +294,9 @@ The first click starts the shape without a toolbar button, and its handles alway
 | `setTool(tool)`, `select(id)`              | Change tool or selection.                                                                            |
 | `finish()`, `cancel()`                     | Finish or drop the shape being drawn.                                                                |
 | `deleteSelected()`, `deleteActiveVertex()` | Delete through `onChange`.                                                                           |
+| `canUndo`, `canRedo`                       | A step is available: a corner of the shape being drawn, or a change in `history`.                    |
+| `undo()`, `redo()`                         | Take the step, through `onChange`.                                                                   |
+| `replace(next)`                            | Your own change to the shapes, through `onChange` and as a step of `history`.                        |
 
 `useDrawPreview(controller, value)` returns the shapes as they look right now, including a
 drag that has not been committed. Use it for a live readout (an area, a sum) while dragging.
@@ -355,7 +391,6 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 
 ## Not included
 
-- Undo. Keep a history of `value` in your app; every `onChange` is one step.
 - Routing along streets, rectangles, circles, rotation and scaling.
 - Editing `Multi*` geometries as one shape; split them with `featuresFromGeometry`.
 
@@ -364,8 +399,8 @@ Give the parts stable ids across a save: `createId: () => \`part-${value.length}
 This package exists because of [TerraDraw](https://github.com/JamesLMilner/terra-draw) by James
 Milner. We used it in production first, and it taught us what the interactions should feel
 like: midpoint handles, closing a polygon on its first corner, screen-space hit-testing with a
-pixel tolerance. If you are not building on react-map-gl, or you need rectangles, circles or
-undo out of the box, use TerraDraw.
+pixel tolerance. If you are not building on react-map-gl, or you need rectangles or circles
+out of the box, use TerraDraw.
 
 We wrote our own because of how our apps hold their data, not because of a fault in TerraDraw.
 TerraDraw is built to work with any map library and any framework. To do that it owns a

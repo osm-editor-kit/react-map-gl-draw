@@ -23,10 +23,19 @@ function that returns the path between the previous corner and the new one. `rou
 is an interactive tool, not a "route from A to B" function; whether it can be driven
 headlessly is untested.
 
-## Undo
+## Undo: what is left
 
-Every `onChange` is one step, so an app can keep a history of `value`. A helper hook could
-ship with the package.
+Undo and redo are built (see "Undo and redo" in [architecture.md](architecture.md)). Left out:
+
+- **Persisting the steps.** They live in memory. `history.store` can be read and set, so an
+  app could write it to `localStorage`. The steps of a shared record (a database row that
+  others edit) should not outlive the page: the stale check only compares the latest value.
+- **Steps the app cannot take back by writing a value**, such as creating or deleting the
+  record a geometry belongs to. Those are the app's own actions.
+- **Naming the step** ("Undo: move corner"). The `meta` of the change is not kept with the
+  step.
+- **Showing what a step changed.** After undo the selection stays where it was; with several
+  shapes the one that changed is not highlighted.
 
 ## Touch on real devices
 

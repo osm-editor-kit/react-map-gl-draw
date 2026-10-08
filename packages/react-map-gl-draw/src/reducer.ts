@@ -307,6 +307,55 @@ const finishExtension = (
   }
 }
 
+/**
+ * Takes the last corner of the shape being drawn back. Taking back the only corner drops the
+ * draft, as there is nothing left to continue from.
+ */
+export const undoDraftCorner = (state: DrawState): ReduceResult => {
+  const draft = state.draft
+  const last = draft?.coordinates.at(-1)
+  if (!draft || !last || draft.type === 'freehand') return { state }
+  const coordinates = draft.coordinates.slice(0, -1)
+  if (coordinates.length === 0) return { state: { ...state, draft: null, hover: null } }
+  return {
+    state: { ...state, draft: { ...draft, coordinates, undone: [...(draft.undone ?? []), last] } },
+  }
+}
+
+export const redoDraftCorner = (state: DrawState): ReduceResult => {
+  const draft = state.draft
+  const corner = draft?.undone?.at(-1)
+  if (!draft || !corner) return { state }
+  return {
+    state: {
+      ...state,
+      draft: {
+        ...draft,
+        coordinates: [...draft.coordinates, corner],
+        undone: draft.undone?.slice(0, -1),
+      },
+    },
+  }
+}
+
+/** Puts a whole value in place: a step of the history, or the app's own change. */
+export const replaceFeatures = (
+  state: DrawState,
+  features: DrawFeature[],
+  reason: 'undo' | 'redo' | 'replace',
+): ReduceResult => ({
+  state: {
+    ...state,
+    selectedId: features.some((feature) => feature.id === state.selectedId)
+      ? state.selectedId
+      : null,
+    activeVertex: null,
+    preview: null,
+    hover: null,
+  },
+  commit: { features, meta: { reason } },
+})
+
 export const cancelDraft = (state: DrawState): ReduceResult => ({
   state: state.draft ? { ...state, draft: null, gesture: null, hover: null } : state,
 })
@@ -653,7 +702,12 @@ const click = (
     return {
       state: {
         ...state,
-        draft: { ...draft, coordinates: [...draft.coordinates, position], cursor: position },
+        draft: {
+          ...draft,
+          coordinates: [...draft.coordinates, position],
+          cursor: position,
+          undone: [],
+        },
         lastTap: tap,
       },
     }
@@ -828,16 +882,7 @@ export const keyDown = (state: DrawState, key: string, ctx: ReduceContext): KeyR
     }
     case 'Backspace':
     case 'Delete': {
-      if (state.draft) {
-        const coordinates = state.draft.coordinates.slice(0, -1)
-        return {
-          state: {
-            ...state,
-            draft: coordinates.length > 0 ? { ...state.draft, coordinates } : null,
-          },
-          handled: true,
-        }
-      }
+      if (state.draft) return { ...undoDraftCorner(state), handled: true }
       const { activeVertex } = state
       if (activeVertex && ctx.value.some((feature) => feature.id === activeVertex.featureId)) {
         // A corner that cannot be removed must not delete the whole shape instead.

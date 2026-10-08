@@ -1,4 +1,5 @@
 export { createDrawController, type DrawController } from './controller'
+export { createDrawHistory, type DrawHistory } from './history'
 export { DrawLayers } from './DrawLayers'
 export { useDraw, useDrawPreview, type DrawInstance } from './useDraw'
 export { featuresFromGeometry, geometryFromFeatures } from './multi'

@@ -23,13 +23,24 @@ type Props = {
   beforeId?: string
   /** Content of the move handle. Default: a round button with a move icon. */
   moveHandle?: ReactNode
-  /** Escape, Enter, Delete and Backspace. Default `true`. */
+  /**
+   * Escape, Enter, Delete and Backspace, and undo and redo (Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z,
+   * Ctrl+Y). Default `true`.
+   */
   keyboard?: boolean
 }
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+
+const historyKeyOf = (event: KeyboardEvent) => {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return null
+  const key = event.key.toLowerCase()
+  if (key === 'z') return event.shiftKey ? 'redo' : 'undo'
+  if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'redo'
+  return null
+}
 
 const DefaultMoveHandle = () => (
   <div
@@ -112,6 +123,14 @@ export const DrawLayers = ({
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
     if (!enabled || !keyboard || event.defaultPrevented || isTyping(event.target)) return
+    const historyKey = event.isComposing ? null : historyKeyOf(event)
+    if (historyKey) {
+      // Also when there is no step left: the browser would otherwise undo the last typing
+      // in a text field that is no longer focused.
+      event.preventDefault()
+      draw[historyKey]()
+      return
+    }
     // Cmd+Backspace and friends belong to the browser; a key during IME composition to the IME.
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
     // A held Backspace steps back through the corners being drawn, and stops there.

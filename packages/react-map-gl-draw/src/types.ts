@@ -1,5 +1,6 @@
 import type { GeoJsonProperties, LineString, Point, Polygon, Position } from 'geojson'
 import type { FilterSpecification } from 'maplibre-gl'
+import type { DrawHistory } from './history'
 
 export type DrawGeometry = Point | LineString | Polygon
 
@@ -36,6 +37,11 @@ export type DrawChangeMeta =
   | { reason: 'add'; featureId: string }
   | { reason: 'edit'; featureId: string }
   | { reason: 'delete'; featureId: string }
+  /** A step of the `history`; `next` is an earlier or later value as a whole. */
+  | { reason: 'undo' }
+  | { reason: 'redo' }
+  /** `replace()` was called. */
+  | { reason: 'replace' }
 
 export type DrawMoveBy = 'handle' | 'body'
 
@@ -82,6 +88,11 @@ export type DrawOptions = {
    * the streets of the basemap. Holding Alt places a corner freely.
    */
   snap?: DrawSnap
+  /**
+   * Keeps every finished change as a step for `undo()` and `redo()`; see `createDrawHistory`.
+   * Without it, undo and redo only step through the corners of the shape being drawn.
+   */
+  history?: DrawHistory
 }
 
 export type DrawSnap = {
@@ -120,6 +131,8 @@ export type Draft = {
    * starts with that end corner, and finishing adds the rest to the line.
    */
   extend?: { featureId: string; end: 'start' | 'end' }
+  /** Corners taken back with undo, the next one to come back last. A new corner clears them. */
+  undone?: Position[]
 }
 
 export type PointerInput = {

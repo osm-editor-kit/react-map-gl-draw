@@ -23,13 +23,14 @@ limits.ts       May another shape be added or deleted
 reducer.ts      The interaction: (state, event, context) → state + optional commit
 renderData.ts   (value, state) → one GeoJSON FeatureCollection for the layers
 controller.ts   A zustand vanilla store for the state, plus pointer bookkeeping
+history.ts      Undo and redo: steps as pure functions, kept in a second vanilla store
 useDraw.ts      Adapts <Map> event props to the reducer; exposes state and actions
 DrawLayers.tsx  <Source>, <Layer>s, the move handle <Marker>, the keyboard listener
 styles.ts       Default layer styles, fixed layer filters, merge with custom styles
 multi.ts        Split Multi* geometries into shapes and combine them again
 ```
 
-Everything up to `renderData.ts` is free of React and of MapLibre and is unit-tested as plain
+Everything up to `renderData.ts`, and the step functions of `history.ts`, are free of React and of MapLibre and is unit-tested as plain
 functions. The tests drive whole gestures ("press a midpoint, move, release") through the
 reducer with a fake projection.
 
@@ -51,6 +52,48 @@ back. So the committed change is kept as `settling` together with the `value` it
 While the app's `value` still equals that base, the committed change is shown. As soon as
 `value` differs (the change arrived, or something else changed it), `value` wins. An app that
 never applies a change sees it revert after one second.
+
+### Undo and redo
+
+TerraDraw has undo and redo, and we took its shape: two levels with one entry point. While a
+shape is drawn, a step is one corner; otherwise a step is one finished change; a coordinator
+picks the level by whether something is being drawn. A limit caps the number of steps, and
+`canUndo` / `canRedo` drive the buttons.
+
+What differs follows from the package being controlled:
+
+- **A step is a whole `value`, not a command.** TerraDraw records per feature what changed
+  and replays it into its own store, and has to tell its own replays from user changes. Here
+  a step is the array the app had before. Undo calls `onChange` with it, like a gesture does,
+  so the app's saving, its URL and its optimistic updates need no second path. The arrays
+  share their unchanged features, so a step costs one array and the changed shape.
+- **The steps are not in the gesture store.** The controller is reset when a surface is
+  switched off, and an app re-mounts `<DrawLayers>` to drop gesture state. The steps have to
+  outlive both. They are in their own store, `createDrawHistory()`, which the app creates
+  next to the controller and passes as the `history` option. One history per thing that is
+  edited gives independent undo for free.
+- **The corners of a draft are in the draft.** A corner taken back is kept in
+  `draft.undone`, so it is gone when the draft is, and a new corner clears it. This level
+  needs no `history`.
+- **No effect watches `value`.** The package cannot see every change of `value`: the app may
+  open another record, a refetch may bring someone else's edit, a failed save may be rolled
+  back. Instead of observing that, the history remembers the value its steps lead away from
+  (`present`). `canUndo` is derived while rendering: are there steps, and does `present`
+  still equal `value`? If not, the steps are ignored, and the next recorded change starts
+  over. Undoing onto a state the user never saw would overwrite other people's work.
+- **Compared by geometry, not by id.** Apps that store one geometry (a URL param, a database
+  column) hand the parts back with ids made from their position. Deleting the first of two
+  parts renames the second. The comparison therefore reads type and coordinates only.
+- **The app's own changes go through `draw.replace(next)`.** A delete button in a list
+  changes `value` without a gesture. Through `replace` it is recorded like one.
+
+Recording happens in one place, where a reducer result is committed (`run` in `handlers.ts`).
+A step taken from the history is committed through the same function with recording off.
+During a drag nothing is undone: the release of the drag would commit on top of the step.
+
+Undo meets settling here: after a step, the app's `value` is behind for a moment, and a
+second undo arrives with the old `value`. `currentFeatures` already answers with the
+committed change in that window, so the second step starts from the right place.
 
 ### One tool, no modes
 
@@ -144,5 +187,5 @@ map from panning. It is the only DOM element the package renders.
 - **Large shapes.** Hit-testing and render data are recomputed per pointer move over all
   corners of all shapes. This is fine for dozens of shapes with hundreds of corners; it is not
   built for thousands.
-- **No routing along streets, no undo** (see README). `snap` places single corners on the
+- **No routing along streets** (see README). `snap` places single corners on the
   map's lines; it does not find the path between two clicks.

@@ -1,6 +1,7 @@
 import { useStore } from 'zustand'
 import type { DrawController } from './controller'
 import { createDrawHandlers } from './handlers'
+import { canRedoHistory, canUndoHistory, createDrawHistory } from './history'
 import { canAddShape, canDeleteShape, shapeTypeOfTool } from './limits'
 import {
   cancelDraft,
@@ -15,7 +16,10 @@ import {
   selectFeature,
   setTool,
 } from './reducer'
-import type { DrawOptions, DrawShapeType, DrawTool } from './types'
+import type { DrawFeature, DrawOptions, DrawShapeType, DrawTool } from './types'
+
+// Stands in where no `history` is given, so the hooks below are the same on every render.
+const noHistory = createDrawHistory()
 
 /**
  * Wires one drawing surface. Call it wherever a piece is needed (the component that renders
@@ -23,7 +27,7 @@ import type { DrawOptions, DrawShapeType, DrawTool } from './types'
  * options; wrap it in an app hook so the options are written once.
  */
 export const useDraw = (controller: DrawController, drawOptions: DrawOptions) => {
-  const { value: appValue, onChange, enabled = true, snap, ...rest } = drawOptions
+  const { value: appValue, onChange, enabled = true, snap, history, ...rest } = drawOptions
   const options = resolveOptions(rest)
   const { store } = controller
   const settling = useStore(store, (state) => state.settling)
@@ -35,7 +39,25 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
   const hasActiveVertex = useStore(store, (state) => state.activeVertex !== null)
   const cursor = useStore(store, (state) => cursorFor(state, value, options))
 
-  const { run, mapHandlers } = createDrawHandlers(controller, { appValue, onChange, options, snap })
+  // While a shape is drawn, the steps are its corners; a drag has none.
+  const canUndoDraft = useStore(store, (state) =>
+    state.draft ? state.draft.type !== 'freehand' : null,
+  )
+  const canRedoDraft = useStore(store, (state) =>
+    state.draft ? (state.draft.undone?.length ?? 0) > 0 : null,
+  )
+  const isDragging = useStore(store, (state) => state.gesture !== null && state.draft === null)
+  const historyStore = (history ?? noHistory).store
+  const canUndoChange = useStore(historyStore, (recorded) => canUndoHistory(recorded, value))
+  const canRedoChange = useStore(historyStore, (recorded) => canRedoHistory(recorded, value))
+
+  const { run, mapHandlers, undo, redo, replace } = createDrawHandlers(controller, {
+    appValue,
+    onChange,
+    options,
+    snap,
+    history,
+  })
 
   const mapProps: Partial<typeof mapHandlers> & { cursor?: string } = enabled
     ? { ...mapHandlers, ...(cursor ? { cursor } : {}) }
@@ -76,6 +98,17 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
     deleteActiveVertex: () => {
       run(deleteActiveVertex)
     },
+
+    /** A step back is possible: a corner of the shape being drawn, or a change in `history`. */
+    canUndo: enabled && (canUndoDraft ?? (!isDragging && canUndoChange)),
+    canRedo: enabled && (canRedoDraft ?? (!isDragging && canRedoChange)),
+    undo,
+    redo,
+    /**
+     * Changes the shapes from outside the map, e.g. a delete button in a list, as one step of
+     * the history. Calls `onChange` like a gesture does.
+     */
+    replace: (next: DrawFeature[]) => replace(next),
 
     /** For `<DrawLayers draw={…}>`; not part of the public surface. */
     internal: { controller, value, appValue, options, enabled, selectedId, run },

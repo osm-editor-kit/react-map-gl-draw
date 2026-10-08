@@ -2,6 +2,7 @@ import type { Geometry } from 'geojson'
 import type { FilterSpecification } from 'maplibre-gl'
 import type { DrawController } from './controller'
 import { roundPosition } from './geometry'
+import { recordChange, redoStep, undoStep, type DrawHistory } from './history'
 import {
   cancelGesture,
   currentFeatures,
@@ -10,6 +11,9 @@ import {
   pointerDown,
   pointerMove,
   pointerUp,
+  redoDraftCorner,
+  replaceFeatures,
+  undoDraftCorner,
   type ReduceContext,
   type ReduceResult,
   type ResolvedOptions,
@@ -109,6 +113,7 @@ type HandlerContext = {
   onChange: DrawOptions['onChange']
   options: ResolvedOptions
   snap?: DrawSnap
+  history?: DrawHistory
 }
 
 /**
@@ -117,11 +122,13 @@ type HandlerContext = {
  */
 export const createDrawHandlers = (
   { store, pointer }: DrawController,
-  { appValue, onChange, options, snap }: HandlerContext,
+  { appValue, onChange, options, snap, history }: HandlerContext,
 ) => {
   const run = (
     reduce: (state: DrawState, ctx: ReduceContext) => ReduceResult,
     project: Project = noProject,
+    // A step of the history moves within it; everything else adds a step.
+    { record = true } = {},
   ) => {
     const stored = store.getState()
     // Once the app's value has moved on, the settling change is history. Dropping it here
@@ -130,7 +137,8 @@ export const createDrawHandlers = (
       stored.settling && !sameFeatures(stored.settling.base, appValue)
         ? { ...stored, settling: null }
         : stored
-    const result = reduce(before, { value: currentFeatures(before, appValue), options, project })
+    const value = currentFeatures(before, appValue)
+    const result = reduce(before, { value, options, project })
     const next = result.commit
       ? {
           ...result.state,
@@ -146,8 +154,43 @@ export const createDrawHandlers = (
         if (state.settling === settling) store.setState({ ...state, settling: null }, true)
       }, SETTLE_MS)
     }
-    if (result.commit) onChange(result.commit.features, result.commit.meta)
+    if (result.commit) {
+      if (history && record) {
+        const { features } = result.commit
+        history.store.setState(
+          (recorded) => recordChange(recorded, value, features, history.limit),
+          true,
+        )
+      }
+      onChange(result.commit.features, result.commit.meta)
+    }
     return result
+  }
+
+  /**
+   * While a shape is drawn, undo and redo step through its corners; otherwise through the
+   * finished changes. Nothing happens during a drag: its release would fight with the step.
+   */
+  const stepThroughHistory = (direction: 'undo' | 'redo') => {
+    const { draft, gesture } = store.getState()
+    if (draft) {
+      run(direction === 'undo' ? undoDraftCorner : redoDraftCorner)
+      return
+    }
+    if (gesture || !history) return
+    run(
+      (state, ctx) => {
+        const step = (direction === 'undo' ? undoStep : redoStep)(
+          history.store.getState(),
+          ctx.value,
+        )
+        if (!step) return { state }
+        history.store.setState(step.history, true)
+        return replaceFeatures(state, step.features, direction)
+      },
+      noProject,
+      { record: false },
+    )
   }
 
   // A click is hit-tested when the press is released, so the release needs the map as well.
@@ -272,5 +315,13 @@ export const createDrawHandlers = (
     },
   }
 
-  return { run, mapHandlers }
+  return {
+    run,
+    mapHandlers,
+    undo: () => stepThroughHistory('undo'),
+    redo: () => stepThroughHistory('redo'),
+    replace: (features: DrawFeature[]) => {
+      run((state) => replaceFeatures(state, features, 'replace'))
+    },
+  }
 }

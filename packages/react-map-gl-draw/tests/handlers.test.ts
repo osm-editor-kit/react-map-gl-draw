@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDrawController } from '../src/controller'
 import { createDrawHandlers } from '../src/handlers'
+import { createDrawHistory } from '../src/history'
 import { currentFeatures, resolveOptions } from '../src/reducer'
 import type { DrawChangeMeta, DrawFeature, DrawOptions } from '../src/types'
 
@@ -69,7 +70,7 @@ afterEach(() => {
 /** An app around the handlers: it applies `onChange` like a component with `useState` would. */
 const app = (
   initial: DrawFeature[] = [],
-  { snap, ...drawOptions }: Omit<DrawOptions, 'value' | 'onChange'> = {},
+  { snap, history, ...drawOptions }: Omit<DrawOptions, 'value' | 'onChange'> = {},
   { applyChanges = true } = {},
 ) => {
   let id = 0
@@ -80,16 +81,18 @@ const app = (
     changes: [] as DrawChangeMeta[],
     controller,
     // Built per event, as `useDraw` builds them per render.
-    handlers: () =>
+    draw: () =>
       createDrawHandlers(controller, {
         appValue: self.value,
         options,
         snap,
+        history,
         onChange: (next, meta) => {
           self.changes.push(meta)
           if (applyChanges) self.value = next
         },
-      }).mapHandlers,
+      }),
+    handlers: () => self.draw().mapHandlers,
     event: (
       x: number,
       y: number,
@@ -384,5 +387,149 @@ describe('snapping to lines of the map', () => {
     const a = app([square], { snap })
     a.handlers().onMouseMove(a.event(500, 302))
     expect(a.controller.store.getState().snap).toBeNull()
+  })
+})
+
+describe('undo and redo', () => {
+  const drawTriangle = (a: ReturnType<typeof app>, x = 100) => {
+    a.controller.store.setState({ tool: 'polygon' })
+    a.click(x, 100)
+    a.click(x + 100, 100)
+    a.click(x + 100, 200)
+    a.click(x, 100)
+  }
+  const dragCorner = (a: ReturnType<typeof app>, from: [number, number], to: [number, number]) => {
+    a.handlers().onMouseDown(a.event(...from))
+    a.handlers().onMouseMove(a.event(...to))
+    a.handlers().onMouseUp(a.event(...to))
+    vi.advanceTimersByTime(1000)
+  }
+
+  it('steps back and forth through added, edited and deleted shapes', () => {
+    const a = app([], { history: createDrawHistory() })
+    drawTriangle(a)
+    const added = a.value
+    dragCorner(a, [100, 100], [50, 50])
+    const edited = a.value
+    expect(edited).not.toEqual(added)
+    a.draw().replace([])
+    expect(a.value).toEqual([])
+
+    a.draw().undo()
+    expect(a.value).toEqual(edited)
+    a.draw().undo()
+    expect(a.value).toEqual(added)
+    a.draw().undo()
+    expect(a.value).toEqual([])
+    a.draw().undo()
+    expect(a.value).toEqual([])
+
+    a.draw().redo()
+    a.draw().redo()
+    expect(a.value).toEqual(edited)
+    expect(a.changes.map((meta) => meta.reason)).toEqual([
+      'add',
+      'edit',
+      'replace',
+      'undo',
+      'undo',
+      'undo',
+      'redo',
+      'redo',
+    ])
+  })
+
+  it('drops the steps to redo when something new is drawn', () => {
+    const history = createDrawHistory()
+    const a = app([], { history })
+    drawTriangle(a)
+    a.draw().undo()
+    drawTriangle(a, 400)
+    expect(history.store.getState().future).toEqual([])
+    a.draw().redo()
+    expect(a.value).toHaveLength(1)
+  })
+
+  it('undoes twice before the app has applied the first step', () => {
+    const a = app([], { history: createDrawHistory() })
+    drawTriangle(a)
+    const added = a.value
+    dragCorner(a, [100, 100], [50, 50])
+    // One render's handlers: `value` does not change between the two calls.
+    const { undo } = a.draw()
+    undo()
+    expect(a.value).toEqual(added)
+    undo()
+    expect(a.value).toEqual([])
+  })
+
+  it('ignores the steps once the app shows other shapes', () => {
+    const history = createDrawHistory()
+    const a = app([], { history, selectSingle: true })
+    drawTriangle(a)
+    // The app opened another record.
+    a.value = [square]
+    a.draw().undo()
+    expect(a.value).toEqual([square])
+
+    // The next change starts a new history on that record.
+    dragCorner(a, [100, 100], [50, 50])
+    expect(history.store.getState().past).toEqual([[square]])
+    a.draw().undo()
+    expect(a.value).toEqual([square])
+  })
+
+  it('keeps the steps when the app hands the shapes back with other ids', () => {
+    const a = app([], { history: createDrawHistory() })
+    drawTriangle(a)
+    a.value = a.value.map((feature) => ({ ...feature, id: 'part-0' }))
+    a.draw().undo()
+    expect(a.value).toEqual([])
+  })
+
+  it('keeps no more steps than the limit', () => {
+    const history = createDrawHistory({ limit: 2 })
+    const a = app([square], { history, selectSingle: true })
+    dragCorner(a, [100, 100], [90, 90])
+    dragCorner(a, [90, 90], [80, 80])
+    dragCorner(a, [80, 80], [70, 70])
+    expect(history.store.getState().past).toHaveLength(2)
+  })
+
+  it('steps through the corners while a shape is drawn, without a history', () => {
+    const a = app()
+    a.controller.store.setState({ tool: 'line' })
+    a.click(100, 100)
+    a.click(200, 100)
+    a.click(300, 100)
+    const corners = () => a.controller.store.getState().draft?.coordinates
+
+    a.draw().undo()
+    expect(corners()).toEqual([at(100, 100), at(200, 100)])
+    a.draw().redo()
+    expect(corners()).toEqual([at(100, 100), at(200, 100), at(300, 100)])
+
+    a.draw().undo()
+    a.click(250, 150)
+    // A new corner was placed: the one taken back is gone.
+    a.draw().redo()
+    expect(corners()).toEqual([at(100, 100), at(200, 100), at(250, 150)])
+
+    a.draw().undo()
+    a.draw().undo()
+    a.draw().undo()
+    expect(a.controller.store.getState().draft).toBeNull()
+    expect(a.changes).toEqual([])
+  })
+
+  it('does nothing while a corner is dragged', () => {
+    const a = app([], { history: createDrawHistory() })
+    drawTriangle(a)
+    a.handlers().onMouseDown(a.event(100, 100))
+    a.handlers().onMouseMove(a.event(50, 50))
+    a.draw().undo()
+    expect(a.value).toHaveLength(1)
+    a.handlers().onMouseUp(a.event(50, 50))
+    expect(a.changes.map((meta) => meta.reason)).toEqual(['add', 'edit'])
   })
 })

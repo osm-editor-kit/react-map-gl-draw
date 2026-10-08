@@ -1,0 +1,90 @@
+import { createStore } from 'zustand/vanilla'
+import type { DrawFeature } from './types'
+
+export type DrawHistoryState = {
+  /** Earlier values, oldest first. */
+  past: DrawFeature[][]
+  /** The value the steps lead away from; `null` while nothing is recorded. */
+  present: DrawFeature[] | null
+  /** Values that were undone, the next one to come back first. */
+  future: DrawFeature[][]
+}
+
+export const emptyHistory: DrawHistoryState = { past: [], present: null, future: [] }
+
+const DEFAULT_LIMIT = 100
+
+// Ids and properties are left out on purpose: an app that stores one geometry (a URL, a
+// database column) hands the shapes back with new ids, and they are still the same shapes.
+const geometryKey = (features: DrawFeature[]) =>
+  JSON.stringify(features.map(({ geometry }) => [geometry.type, geometry.coordinates]))
+
+export const sameGeometries = (a: DrawFeature[], b: DrawFeature[]) =>
+  a === b || geometryKey(a) === geometryKey(b)
+
+/**
+ * The steps only apply to the value they were recorded on. Once the app shows something else
+ * (another record was opened, a refetch brought a change, a save was rolled back), they are
+ * stale: undoing would overwrite a state the user never saw them lead to.
+ */
+const isCurrent = (history: DrawHistoryState, value: DrawFeature[]) =>
+  history.present !== null && sameGeometries(history.present, value)
+
+export const canUndoHistory = (history: DrawHistoryState, value: DrawFeature[]) =>
+  history.past.length > 0 && isCurrent(history, value)
+
+export const canRedoHistory = (history: DrawHistoryState, value: DrawFeature[]) =>
+  history.future.length > 0 && isCurrent(history, value)
+
+/** One finished change: `before` becomes a step to go back to. Stale steps are dropped. */
+export const recordChange = (
+  history: DrawHistoryState,
+  before: DrawFeature[],
+  after: DrawFeature[],
+  limit: number,
+): DrawHistoryState => ({
+  past: [...(isCurrent(history, before) ? history.past : []), before].slice(-limit),
+  present: after,
+  future: [],
+})
+
+export type HistoryStep = { history: DrawHistoryState; features: DrawFeature[] }
+
+export const undoStep = (history: DrawHistoryState, value: DrawFeature[]): HistoryStep | null => {
+  const previous = history.past.at(-1)
+  if (!previous || !isCurrent(history, value)) return null
+  return {
+    history: {
+      past: history.past.slice(0, -1),
+      present: previous,
+      future: [value, ...history.future],
+    },
+    features: previous,
+  }
+}
+
+export const redoStep = (history: DrawHistoryState, value: DrawFeature[]): HistoryStep | null => {
+  const [next, ...future] = history.future
+  if (!next || !isCurrent(history, value)) return null
+  return {
+    history: { past: [...history.past, value], present: next, future },
+    features: next,
+  }
+}
+
+/**
+ * Holds the undo and redo steps of one drawing surface. Create one per thing that is edited
+ * and pass it as the `history` option; surfaces with their own history undo independently.
+ */
+export const createDrawHistory = ({ limit = DEFAULT_LIMIT }: { limit?: number } = {}) => {
+  const store = createStore<DrawHistoryState>(() => emptyHistory)
+  return {
+    store,
+    /** Number of steps that are kept. */
+    limit: Math.max(1, limit),
+    /** Forgets all steps, e.g. when another record is opened for editing. */
+    clear: () => store.setState(emptyHistory, true),
+  }
+}
+
+export type DrawHistory = ReturnType<typeof createDrawHistory>
