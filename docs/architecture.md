@@ -30,8 +30,8 @@ styles.ts       Default layer styles, fixed layer filters, merge with custom sty
 multi.ts        Split Multi* geometries into shapes and combine them again
 ```
 
-Everything up to `renderData.ts`, and the step functions of `history.ts`, are free of React and of MapLibre and is unit-tested as plain
-functions. The tests drive whole gestures ("press a midpoint, move, release") through the
+Everything up to `renderData.ts`, and the step functions of `history.ts`, are free of React
+and of MapLibre and unit-tested as plain functions. The tests drive whole gestures ("press a midpoint, move, release") through the
 reducer with a fake projection.
 
 ## Decisions

@@ -47,7 +47,11 @@ export type DrawMoveBy = 'handle' | 'body'
 
 export type DrawOptions = {
   value: DrawFeature[]
-  /** Called once per finished gesture, never during a drag. */
+  /**
+   * Called once per finished change, never during a drag. A change that was not on the map as
+   * the preview of a drag (undo, redo, delete, a new point) is drawn first and reported right
+   * after, so the app's reaction does not hold it back.
+   */
   onChange: (next: DrawFeature[], meta: DrawChangeMeta) => void
   /** `false` turns all interaction off; `mapProps` is then empty. Default `true`. */
   enabled?: boolean

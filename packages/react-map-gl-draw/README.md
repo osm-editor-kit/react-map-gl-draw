@@ -271,6 +271,8 @@ value as a whole, so your app applies and saves a step like any other change.
   offered under the key they were recorded with, so switching records needs no clean-up, and
   two records with the same shapes do not share steps. `history.clear()` drops the steps by
   hand.
+- **Shown first, then reported.** A step is drawn on the map before `onChange` is called
+  (at most 250 ms later), so heavy work in your `onChange` does not delay it.
 - The steps are kept in memory. `history.store` is a zustand vanilla store with
   `{ past, present, future }` if you want to show or persist them.
 
