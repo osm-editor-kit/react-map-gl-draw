@@ -11,6 +11,7 @@ import {
   simplifyIndexes,
   translateGeometry,
   updateFeature,
+  shapeTypeOf,
 } from './geometry'
 import { hitTest, hitTestDraft } from './hitTest'
 import { canAddShape, canDeleteShape, shapeTypeOfTool } from './limits'
@@ -29,6 +30,7 @@ import type {
   Project,
   ScreenPoint,
   VertexRef,
+  DrawShapeType,
 } from './types'
 
 export type ResolvedOptions = {
@@ -39,7 +41,7 @@ export type ResolvedOptions = {
   keepTool: boolean
   closeLines: boolean
   precision: number
-  createId: () => string
+  createId: (type: DrawShapeType) => string
   tolerance: { mouse: number; touch: number }
 }
 
@@ -175,7 +177,7 @@ const addFeature = (
 ): ReduceResult => {
   const feature = {
     type: 'Feature',
-    id: ctx.options.createId(),
+    id: ctx.options.createId(shapeTypeOf(geometry)),
     geometry,
     properties: {},
   } satisfies DrawFeature

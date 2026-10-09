@@ -830,3 +830,17 @@ describe('pointer tracking', () => {
     expect(s.state.draft?.coordinates).toHaveLength(1)
   })
 })
+
+describe('createId', () => {
+  it('is told the type of the new shape', () => {
+    const s = surface([], { createId: (type) => `${type}-1` })
+    s.tool('line')
+    s.click(100, 100)
+    s.doubleClick(200, 200)
+    s.tool('polygon')
+    s.click(300, 300)
+    s.click(400, 300)
+    s.doubleClick(400, 400)
+    expect(s.value.map((feature) => feature.id)).toEqual(['line-1', 'polygon-1'])
+  })
+})

@@ -84,7 +84,8 @@ export type DrawOptions = {
   selectSingle?: boolean
   /** Decimals kept for coordinates. Default 7 (about 1 cm). */
   precision?: number
-  createId?: () => string
+  /** Id of a new shape; gets the type of the shape so ids can be told apart per type. */
+  createId?: (type: DrawShapeType) => string
   /** Hit distance in pixels. Defaults: mouse 10, touch 20. */
   tolerance?: { mouse?: number; touch?: number }
   /**

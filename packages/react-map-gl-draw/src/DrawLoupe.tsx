@@ -99,10 +99,11 @@ export const DrawLoupe = ({
   const focusLat = focus?.position[1]
   useEffect(
     function followFocus() {
-      if (focusLng === undefined || focusLat === undefined) return
+      // A hidden loupe stays where it is, so it requests no tiles nobody sees.
+      if (hidden || focusLng === undefined || focusLat === undefined) return
       mapRef.current?.jumpTo({ center: [focusLng, focusLat], zoom })
     },
-    [focusLng, focusLat, zoom],
+    [hidden, focusLng, focusLat, zoom],
   )
 
   const shapeData = useMemo(() => {

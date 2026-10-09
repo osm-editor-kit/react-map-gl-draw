@@ -164,7 +164,7 @@ useDraw(controller, {
   keepTool, // keep a shape tool armed after adding a shape. Default false.
   closeLines, // a line that ends on its first corner becomes a polygon. Default false.
   precision, // decimals kept for coordinates. Default 7.
-  createId, // id for a new shape. Default crypto.randomUUID().
+  createId, // (type) => id for a new shape of that type. Default crypto.randomUUID().
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
   snap, // snap corners to lines of the map underneath; see below
   history, // steps for undo and redo; see below
