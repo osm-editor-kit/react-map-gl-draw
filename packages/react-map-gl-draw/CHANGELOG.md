@@ -1,5 +1,13 @@
 # @osm-editor-kit/react-map-gl-draw
 
+## 0.2.0
+
+### Minor Changes
+
+- 6dfa7b5: Add `<DrawLoupe>`, a magnifier that follows the corner being placed or dragged, and the hooks
+  `useDrawDraft` (the shape still being drawn) and `useDrawFocus` (the corner being worked on).
+  The rubber band now ends when the pointer leaves the map.
+
 ## 0.1.0
 
 ### Minor Changes
