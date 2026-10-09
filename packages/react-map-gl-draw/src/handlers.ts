@@ -122,7 +122,7 @@ type HandlerContext = {
  * React: `useDraw` builds it on every render.
  */
 export const createDrawHandlers = (
-  { store, pointer }: DrawController,
+  { store, pointer, afterShown }: DrawController,
   { appValue, onChange, options, snap, history, historyKey }: HandlerContext,
 ) => {
   const run = (
@@ -164,7 +164,8 @@ export const createDrawHandlers = (
           true,
         )
       }
-      onChange(result.commit.features, result.commit.meta)
+      const { features, meta } = result.commit
+      afterShown(() => onChange(features, meta), before.preview !== null)
     }
     return result
   }

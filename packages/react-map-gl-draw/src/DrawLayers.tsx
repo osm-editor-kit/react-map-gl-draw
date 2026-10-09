@@ -1,6 +1,13 @@
 import { useHotkey } from '@tanstack/react-hotkeys'
 import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
-import { Layer, Marker, Source, type LayerProps, type MarkerDragEvent } from 'react-map-gl/maplibre'
+import {
+  Layer,
+  Marker,
+  Source,
+  useMap,
+  type LayerProps,
+  type MarkerDragEvent,
+} from 'react-map-gl/maplibre'
 import { useStore } from 'zustand'
 import {
   closeTargetOf,
@@ -30,6 +37,9 @@ type Props = {
    */
   keyboard?: boolean
 }
+
+// How long a change waits for the map before the app is told anyway (hidden tab, slow device).
+const SHOWN_TIMEOUT_MS = 250
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -155,6 +165,38 @@ export const DrawLayers = ({
       }
     },
     [store, appValue],
+  )
+
+  const { current: map } = useMap()
+  useEffect(
+    function tellTheAppOnceAChangeIsOnTheMap() {
+      if (!map) return
+      controller.setWhenShown((done) => {
+        let finished = false
+        const finish = () => {
+          if (finished) return
+          finished = true
+          clearTimeout(timer)
+          map.off('sourcedata', onSourceData)
+          done()
+        }
+        const onSourceData = (event: {
+          sourceId?: string
+          sourceDataType?: string
+          isSourceLoaded?: boolean
+        }) => {
+          // The `metadata` event at the start of an update still reports the old, loaded state.
+          if (event.sourceId !== id || event.sourceDataType === 'metadata') return
+          if (!event.isSourceLoaded) return
+          // Loaded is not drawn yet: the map renders in its next frame, we follow in the one after.
+          requestAnimationFrame(() => requestAnimationFrame(finish))
+        }
+        const timer = setTimeout(finish, SHOWN_TIMEOUT_MS)
+        map.on('sourcedata', onSourceData)
+      })
+      return () => controller.setWhenShown(null)
+    },
+    [controller, map, id],
   )
 
   useEffect(

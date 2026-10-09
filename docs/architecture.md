@@ -103,6 +103,19 @@ Undo meets settling here: after a step, the app's `value` is behind for a moment
 second undo arrives with the old `value`. `currentFeatures` already answers with the
 committed change in that window, so the second step starts from the right place.
 
+### Shown first, then told
+
+`onChange` is not called in the task that commits a change, but once the map has drawn it
+(`afterShown` in `controller.ts`, the waiting in `<DrawLayers>`: the source reports loaded,
+plus two frames, at most 250 ms). An app answers a change with work on the main thread: a URL
+update, a re-render of the page, new filters on its own layers. MapLibre gets the new shapes
+from its worker, and that answer cannot be handled while the main thread is busy. Measured in
+an app with a heavy page: an undo appeared after 0.5 to 3.5 s when both started together.
+
+A drag is exempt: its result is on the map as the preview before it is committed. Waiting
+changes go out in order, and at once when `<DrawLayers>` unmounts. Without a map (tests,
+headless use of the handlers) `onChange` is called synchronously.
+
 ### One tool, no modes
 
 The stored tool only decides what a press on empty map does. What is under the pointer always

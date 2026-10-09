@@ -20,6 +20,15 @@ export const createDrawController = (initial: { tool?: DrawTool } = {}) => {
   let suppressDblClickUntil = 0
   let release: { onRelease: () => void; onAbort: () => void } | null = null
   let settleTimer: ReturnType<typeof setTimeout> | undefined
+  // A change is shown by the package first and handed to the app after: see `afterShown`.
+  let whenShown: ((done: () => void) => void) | null = null
+  let pendingChange: (() => void) | null = null
+
+  const deliverPendingChange = () => {
+    const deliver = pendingChange
+    pendingChange = null
+    deliver?.()
+  }
 
   // A release can happen outside the map canvas, where the map reports nothing, so it is also
   // awaited on the window. The listeners call whatever was registered last: handlers are
@@ -41,7 +50,31 @@ export const createDrawController = (initial: { tool?: DrawTool } = {}) => {
 
   return {
     store,
+    /**
+     * Calls `deliver` (the app's `onChange`) once the committed change is on the map. An app
+     * usually reacts to a change with work that keeps the main thread busy: a URL update, a
+     * re-render, new filters on its own layers. Started in the same task, that work would hold
+     * back the map's answer from its worker, and the change would show up late. Without
+     * `<DrawLayers>` on a map there is nothing to wait for and `deliver` runs at once; the
+     * same goes for a change that `alreadyShown` as the preview of a drag.
+     */
+    afterShown: (deliver: () => void, alreadyShown: boolean) => {
+      // Never out of order, never more than one waiting.
+      deliverPendingChange()
+      if (!whenShown || alreadyShown) {
+        deliver()
+        return
+      }
+      pendingChange = deliver
+      whenShown(deliverPendingChange)
+    },
+    /** Set by `<DrawLayers>`: calls `done` when the map has drawn the current shapes. */
+    setWhenShown: (next: ((done: () => void) => void) | null) => {
+      if (!next) deliverPendingChange()
+      whenShown = next
+    },
     reset: () => {
+      deliverPendingChange()
       stopListeningForRelease()
       clearTimeout(settleTimer)
       store.setState(startState, true)

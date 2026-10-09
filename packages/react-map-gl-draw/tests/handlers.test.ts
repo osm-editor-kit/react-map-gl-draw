@@ -540,6 +540,35 @@ describe('undo and redo', () => {
     expect(a.changes).toEqual([])
   })
 
+  it('tells the app about a step once the map has shown it, and about a drag at once', () => {
+    const a = app([], { history: createDrawHistory(), selectSingle: true })
+    drawTriangle(a)
+    const shown: (() => void)[] = []
+    a.controller.setWhenShown((done) => {
+      shown.push(done)
+    })
+
+    // The drag was on the map as a preview already.
+    dragCorner(a, [100, 100], [50, 50])
+    expect(a.changes.map((meta) => meta.reason)).toEqual(['add', 'edit'])
+    const edited = a.value
+
+    a.draw().undo()
+    expect(a.value).toEqual(edited)
+    expect(a.shown()).not.toEqual(edited)
+    // A second step does not wait behind the first.
+    a.draw().undo()
+    expect(a.changes.map((meta) => meta.reason)).toEqual(['add', 'edit', 'undo'])
+    shown.at(-1)?.()
+    expect(a.changes.map((meta) => meta.reason)).toEqual(['add', 'edit', 'undo', 'undo'])
+    expect(a.value).toEqual([])
+
+    a.draw().redo()
+    // `<DrawLayers>` is gone: nothing is lost.
+    a.controller.setWhenShown(null)
+    expect(a.value).toHaveLength(1)
+  })
+
   it('does nothing while a corner is dragged', () => {
     const a = app([], { history: createDrawHistory() })
     drawTriangle(a)
