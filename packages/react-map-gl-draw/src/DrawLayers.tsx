@@ -1,3 +1,4 @@
+import { useHotkey } from '@tanstack/react-hotkeys'
 import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
 import { Layer, Marker, Source, type LayerProps, type MarkerDragEvent } from 'react-map-gl/maplibre'
 import { useStore } from 'zustand'
@@ -33,14 +34,6 @@ type Props = {
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-
-const historyKeyOf = (event: KeyboardEvent) => {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey) return null
-  const key = event.key.toLowerCase()
-  if (key === 'z') return event.shiftKey ? 'redo' : 'undo'
-  if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'redo'
-  return null
-}
 
 const DefaultMoveHandle = () => (
   <div
@@ -123,14 +116,6 @@ export const DrawLayers = ({
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
     if (!enabled || !keyboard || event.defaultPrevented || isTyping(event.target)) return
-    const historyKey = event.isComposing ? null : historyKeyOf(event)
-    if (historyKey) {
-      // Also when there is no step left: the browser would otherwise undo the last typing
-      // in a text field that is no longer focused.
-      event.preventDefault()
-      draw[historyKey]()
-      return
-    }
     // Cmd+Backspace and friends belong to the browser; a key during IME composition to the IME.
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
     // A held Backspace steps back through the corners being drawn, and stops there.
@@ -143,6 +128,18 @@ export const DrawLayers = ({
     })
     if (handled) event.preventDefault()
   })
+
+  // Typing keeps its own undo. Without a step left the keys are still taken: the browser
+  // would otherwise undo the last typing in a text field that is no longer focused. Several
+  // surfaces register the same keys; only the enabled one acts.
+  const historyKeys = {
+    enabled: enabled && keyboard,
+    ignoreInputs: true,
+    conflictBehavior: 'allow',
+  } as const
+  useHotkey('Mod+Z', draw.undo, historyKeys)
+  useHotkey('Mod+Shift+Z', draw.redo, historyKeys)
+  useHotkey('Control+Y', draw.redo, historyKeys)
 
   useEffect(function listenForDrawKeys() {
     const listener = (event: KeyboardEvent) => onKeyDown(event)

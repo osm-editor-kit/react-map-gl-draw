@@ -87,6 +87,11 @@ What differs follows from the package being controlled:
 - **The app's own changes go through `draw.replace(next)`.** A delete button in a list
   changes `value` without a gesture. Through `replace` it is recorded like one.
 
+The keys for undo and redo are registered with `@tanstack/react-hotkeys` (`Mod+Z`,
+`Mod+Shift+Z`, `Control+Y`), which resolves `Mod` per platform and leaves text fields alone.
+Escape, Enter, Delete and Backspace stay on the package's own listener: they only count as
+handled when the reducer acts on them, and must otherwise reach the app.
+
 Recording happens in one place, where a reducer result is committed (`run` in `handlers.ts`).
 A step taken from the history is committed through the same function with recording off.
 During a drag nothing is undone: the release of the drag would commit on top of the step.

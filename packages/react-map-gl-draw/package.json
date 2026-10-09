@@ -47,6 +47,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
+    "@tanstack/react-hotkeys": "^0.12.1",
     "@types/geojson": "^7946.0.16",
     "zustand": "^5.0.0"
   },
