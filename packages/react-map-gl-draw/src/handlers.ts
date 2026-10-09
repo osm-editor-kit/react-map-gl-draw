@@ -114,6 +114,7 @@ type HandlerContext = {
   options: ResolvedOptions
   snap?: DrawSnap
   history?: DrawHistory
+  historyKey?: string
 }
 
 /**
@@ -122,7 +123,7 @@ type HandlerContext = {
  */
 export const createDrawHandlers = (
   { store, pointer }: DrawController,
-  { appValue, onChange, options, snap, history }: HandlerContext,
+  { appValue, onChange, options, snap, history, historyKey }: HandlerContext,
 ) => {
   const run = (
     reduce: (state: DrawState, ctx: ReduceContext) => ReduceResult,
@@ -158,7 +159,8 @@ export const createDrawHandlers = (
       if (history && record) {
         const { features } = result.commit
         history.store.setState(
-          (recorded) => recordChange(recorded, value, features, history.limit),
+          (recorded) =>
+            recordChange(recorded, { value, key: historyKey ?? null }, features, history.limit),
           true,
         )
       }
@@ -180,10 +182,10 @@ export const createDrawHandlers = (
     if (gesture || !history) return
     run(
       (state, ctx) => {
-        const step = (direction === 'undo' ? undoStep : redoStep)(
-          history.store.getState(),
-          ctx.value,
-        )
+        const step = (direction === 'undo' ? undoStep : redoStep)(history.store.getState(), {
+          value: ctx.value,
+          key: historyKey ?? null,
+        })
         if (!step) return { state }
         history.store.setState(step.history, true)
         return replaceFeatures(state, step.features, direction)

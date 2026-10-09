@@ -168,6 +168,7 @@ useDraw(controller, {
   tolerance, // hit distance in px. Default { mouse: 10, touch: 20 }.
   snap, // snap corners to lines of the map underneath; see below
   history, // steps for undo and redo; see below
+  historyKey, // names what is edited when one surface edits different things in turn
 })
 ```
 
@@ -265,8 +266,11 @@ value as a whole, so your app applies and saves a step like any other change.
   else without the package (another record is opened, a refetch brings a change, a failed
   save is rolled back), `canUndo` and `canRedo` are false and the next change starts a new
   history. Shapes are compared by geometry, not by id, so an app that stores one geometry and
-  hands the parts back with new ids keeps its steps. Call `history.clear()` to drop the steps
-  yourself.
+  hands the parts back with new ids keeps its steps.
+- **One surface, different records.** Pass the record's id as `historyKey`. Steps are only
+  offered under the key they were recorded with, so switching records needs no clean-up, and
+  two records with the same shapes do not share steps. `history.clear()` drops the steps by
+  hand.
 - The steps are kept in memory. `history.store` is a zustand vanilla store with
   `{ past, present, future }` if you want to show or persist them.
 

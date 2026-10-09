@@ -81,6 +81,9 @@ What differs follows from the package being controlled:
   (`present`). `canUndo` is derived while rendering: are there steps, and does `present`
   still equal `value`? If not, the steps are ignored, and the next recorded change starts
   over. Undoing onto a state the user never saw would overwrite other people's work.
+- **`historyKey` instead of a clean-up effect.** A surface that edits one record after the
+  other passes the record's id. The key is stored with the steps and part of the same check,
+  so the app needs no effect that clears the history when the record changes.
 - **Compared by geometry, not by id.** Apps that store one geometry (a URL param, a database
   column) hand the parts back with ids made from their position. Deleting the first of two
   parts renames the second. The comparison therefore reads type and coordinates only.

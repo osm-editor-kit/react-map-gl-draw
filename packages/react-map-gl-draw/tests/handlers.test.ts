@@ -70,7 +70,7 @@ afterEach(() => {
 /** An app around the handlers: it applies `onChange` like a component with `useState` would. */
 const app = (
   initial: DrawFeature[] = [],
-  { snap, history, ...drawOptions }: Omit<DrawOptions, 'value' | 'onChange'> = {},
+  { snap, history, historyKey, ...drawOptions }: Omit<DrawOptions, 'value' | 'onChange'> = {},
   { applyChanges = true } = {},
 ) => {
   let id = 0
@@ -78,6 +78,7 @@ const app = (
   const options = resolveOptions({ createId: () => `new-${++id}`, ...drawOptions })
   const self = {
     value: initial,
+    historyKey,
     changes: [] as DrawChangeMeta[],
     controller,
     // Built per event, as `useDraw` builds them per render.
@@ -87,6 +88,7 @@ const app = (
         options,
         snap,
         history,
+        historyKey: self.historyKey,
         onChange: (next, meta) => {
           self.changes.push(meta)
           if (applyChanges) self.value = next
@@ -485,6 +487,22 @@ describe('undo and redo', () => {
     a.value = a.value.map((feature) => ({ ...feature, id: 'part-0' }))
     a.draw().undo()
     expect(a.value).toEqual([])
+  })
+
+  it('offers the steps only under the key they were recorded with', () => {
+    const history = createDrawHistory()
+    const a = app([square], { history, historyKey: 'entry-1', selectSingle: true })
+    dragCorner(a, [100, 100], [50, 50])
+    const edited = a.value
+
+    // Another record with the very same shapes.
+    a.historyKey = 'entry-2'
+    a.draw().undo()
+    expect(a.value).toEqual(edited)
+
+    a.historyKey = 'entry-1'
+    a.draw().undo()
+    expect(a.value).toEqual([square])
   })
 
   it('keeps no more steps than the limit', () => {

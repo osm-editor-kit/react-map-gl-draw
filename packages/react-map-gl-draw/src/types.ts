@@ -93,6 +93,12 @@ export type DrawOptions = {
    * Without it, undo and redo only step through the corners of the shape being drawn.
    */
   history?: DrawHistory
+  /**
+   * Names what is edited, e.g. the id of a record, when one drawing surface edits different
+   * things in turn. Steps recorded under another key are not offered, so no clean-up is needed
+   * when the record changes.
+   */
+  historyKey?: string
 }
 
 export type DrawSnap = {

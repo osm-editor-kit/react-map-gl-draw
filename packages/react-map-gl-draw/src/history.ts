@@ -8,9 +8,11 @@ export type DrawHistoryState = {
   present: DrawFeature[] | null
   /** Values that were undone, the next one to come back first. */
   future: DrawFeature[][]
+  /** The `historyKey` the steps were recorded under. */
+  key: string | null
 }
 
-export const emptyHistory: DrawHistoryState = { past: [], present: null, future: [] }
+export const emptyHistory: DrawHistoryState = { past: [], present: null, future: [], key: null }
 
 const DEFAULT_LIMIT = 100
 
@@ -22,52 +24,57 @@ const geometryKey = (features: DrawFeature[]) =>
 export const sameGeometries = (a: DrawFeature[], b: DrawFeature[]) =>
   a === b || geometryKey(a) === geometryKey(b)
 
+/** What the steps are checked against: the shapes shown now and the `historyKey`. */
+export type HistoryTarget = { value: DrawFeature[]; key: string | null }
+
 /**
  * The steps only apply to the value they were recorded on. Once the app shows something else
  * (another record was opened, a refetch brought a change, a save was rolled back), they are
  * stale: undoing would overwrite a state the user never saw them lead to.
  */
-const isCurrent = (history: DrawHistoryState, value: DrawFeature[]) =>
-  history.present !== null && sameGeometries(history.present, value)
+const isCurrent = (history: DrawHistoryState, { value, key }: HistoryTarget) =>
+  history.present !== null && history.key === key && sameGeometries(history.present, value)
 
-export const canUndoHistory = (history: DrawHistoryState, value: DrawFeature[]) =>
-  history.past.length > 0 && isCurrent(history, value)
+export const canUndoHistory = (history: DrawHistoryState, target: HistoryTarget) =>
+  history.past.length > 0 && isCurrent(history, target)
 
-export const canRedoHistory = (history: DrawHistoryState, value: DrawFeature[]) =>
-  history.future.length > 0 && isCurrent(history, value)
+export const canRedoHistory = (history: DrawHistoryState, target: HistoryTarget) =>
+  history.future.length > 0 && isCurrent(history, target)
 
 /** One finished change: `before` becomes a step to go back to. Stale steps are dropped. */
 export const recordChange = (
   history: DrawHistoryState,
-  before: DrawFeature[],
+  before: HistoryTarget,
   after: DrawFeature[],
   limit: number,
 ): DrawHistoryState => ({
-  past: [...(isCurrent(history, before) ? history.past : []), before].slice(-limit),
+  past: [...(isCurrent(history, before) ? history.past : []), before.value].slice(-limit),
   present: after,
   future: [],
+  key: before.key,
 })
 
 export type HistoryStep = { history: DrawHistoryState; features: DrawFeature[] }
 
-export const undoStep = (history: DrawHistoryState, value: DrawFeature[]): HistoryStep | null => {
+export const undoStep = (history: DrawHistoryState, target: HistoryTarget): HistoryStep | null => {
   const previous = history.past.at(-1)
-  if (!previous || !isCurrent(history, value)) return null
+  if (!previous || !isCurrent(history, target)) return null
   return {
     history: {
+      ...history,
       past: history.past.slice(0, -1),
       present: previous,
-      future: [value, ...history.future],
+      future: [target.value, ...history.future],
     },
     features: previous,
   }
 }
 
-export const redoStep = (history: DrawHistoryState, value: DrawFeature[]): HistoryStep | null => {
+export const redoStep = (history: DrawHistoryState, target: HistoryTarget): HistoryStep | null => {
   const [next, ...future] = history.future
-  if (!next || !isCurrent(history, value)) return null
+  if (!next || !isCurrent(history, target)) return null
   return {
-    history: { past: [...history.past, value], present: next, future },
+    history: { ...history, past: [...history.past, target.value], present: next, future },
     features: next,
   }
 }
@@ -82,7 +89,7 @@ export const createDrawHistory = ({ limit = DEFAULT_LIMIT }: { limit?: number } 
     store,
     /** Number of steps that are kept. */
     limit: Math.max(1, limit),
-    /** Forgets all steps, e.g. when another record is opened for editing. */
+    /** Forgets all steps. Rarely needed: see the `historyKey` option. */
     clear: () => store.setState(emptyHistory, true),
   }
 }

@@ -27,7 +27,15 @@ const noHistory = createDrawHistory()
  * options; wrap it in an app hook so the options are written once.
  */
 export const useDraw = (controller: DrawController, drawOptions: DrawOptions) => {
-  const { value: appValue, onChange, enabled = true, snap, history, ...rest } = drawOptions
+  const {
+    value: appValue,
+    onChange,
+    enabled = true,
+    snap,
+    history,
+    historyKey,
+    ...rest
+  } = drawOptions
   const options = resolveOptions(rest)
   const { store } = controller
   const settling = useStore(store, (state) => state.settling)
@@ -48,8 +56,13 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
   )
   const isDragging = useStore(store, (state) => state.gesture !== null && state.draft === null)
   const historyStore = (history ?? noHistory).store
-  const canUndoChange = useStore(historyStore, (recorded) => canUndoHistory(recorded, value))
-  const canRedoChange = useStore(historyStore, (recorded) => canRedoHistory(recorded, value))
+  const historyTarget = { value, key: historyKey ?? null }
+  const canUndoChange = useStore(historyStore, (recorded) =>
+    canUndoHistory(recorded, historyTarget),
+  )
+  const canRedoChange = useStore(historyStore, (recorded) =>
+    canRedoHistory(recorded, historyTarget),
+  )
 
   const { run, mapHandlers, undo, redo, replace } = createDrawHandlers(controller, {
     appValue,
@@ -57,6 +70,7 @@ export const useDraw = (controller: DrawController, drawOptions: DrawOptions) =>
     options,
     snap,
     history,
+    historyKey,
   })
 
   const mapProps: Partial<typeof mapHandlers> & { cursor?: string } = enabled
