@@ -1,5 +1,13 @@
 # @osm-editor-kit/react-map-gl-draw
 
+## 0.2.1
+
+### Patch Changes
+
+- f3863a6: `createId` is told the type of the new shape (`'point'`, `'line'` or `'polygon'`), so ids can
+  be told apart per type. A hidden `<DrawLoupe>` no longer follows the pointer, so it requests no
+  tiles while it is not shown.
+
 ## 0.2.0
 
 ### Minor Changes
