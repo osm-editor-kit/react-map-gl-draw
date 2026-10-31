@@ -7,6 +7,10 @@ component.
 > [!NOTE]
 > Claude Opus 5.5 wrote and reviewed the code of this package. [@tordans](https://github.com/tordans) specified what it should do and tested and verified its user-facing behavior.
 
+Mouse input is exercised on two drawing surfaces of [TILDA](https://tilda-geo.de). Touch input is
+implemented and passes a simulated touch drag in Chromium, but has not been verified on real
+devices yet.
+
 Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
 **npm:** [`@osm-editor-kit/react-map-gl-draw`](https://npmx.dev/package/@osm-editor-kit/react-map-gl-draw)
 · **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
