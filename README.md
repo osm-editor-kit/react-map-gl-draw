@@ -6,6 +6,9 @@ component: shapes in, `onChange` out, styled with ordinary layer styles.
 
 Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
 
+> [!NOTE]
+> Claude Opus 5.5 wrote and reviewed the code of this package. [@tordans](https://github.com/tordans) specified what it should do and tested and verified its user-facing behavior.
+
 **Package:** [`@osm-editor-kit/react-map-gl-draw`](https://npmx.dev/package/@osm-editor-kit/react-map-gl-draw)
 on npm (see [its README](packages/react-map-gl-draw) for the API) · **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
 
@@ -33,7 +36,7 @@ bun run check    # format, lint, typecheck, tests
 bun run build
 cd packages/react-map-gl-draw && bun pm pack --destination ../../.local
 # in the app:
-bun add @osm-editor-kit/react-map-gl-draw@file:/absolute/path/to/.local/osm-editor-kit-react-map-gl-draw-0.0.1.tgz
+bun add @osm-editor-kit/react-map-gl-draw@file:/absolute/path/to/.local/osm-editor-kit-react-map-gl-draw-1.0.0.tgz
 ```
 
 Bun caches a `file:` tarball by its path. After repacking, run `bun remove` and `bun add` again
