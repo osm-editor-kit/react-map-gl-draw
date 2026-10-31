@@ -1,7 +1,21 @@
 # Changesets
 
-This folder holds [changesets](https://github.com/changesets/changesets). Each changeset is a
-markdown file describing a version bump for `@osm-editor-kit/react-map-gl-draw`.
+Agents write the changeset of a change. Do not use the interactive `bunx changeset`.
 
-For a change that should be released, run `bunx changeset` and commit the result. The Release
-workflow versions and publishes when such a file reaches `main`.
+Add `.changeset/<descriptive-name>.md` in the same commit as the code:
+
+```md
+---
+"@osm-editor-kit/<package>": patch
+---
+
+- What people who use the package get, not which files changed.
+```
+
+- `patch` for fixes, `minor` for new features, `major` for breaking changes. A `major` names every removed export and its replacement.
+- List every changed package, one line each, with double quotes.
+- A change without anything to release, such as tests or docs, gets an empty changeset: only the two `---` lines.
+
+The pre-push hook runs `bunx changeset status --since=origin/main` and stops a push without a changeset.
+
+Changesets add up on `main` until the next release. See [Release](../README.md#release).

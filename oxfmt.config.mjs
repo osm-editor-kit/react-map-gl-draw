@@ -23,5 +23,7 @@ export default defineConfig({
     '**/src/data/**',
     '**/routeTree.gen.ts',
     'bun.lock',
+    // Shared text, kept byte-identical to osm-editor-kit/.github (release/changeset-README.md).
+    '.changeset/README.md',
   ],
 })

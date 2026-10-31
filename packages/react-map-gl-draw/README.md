@@ -4,25 +4,12 @@ Draw and edit points, lines and polygons on a
 [react-map-gl](https://visgl.github.io/react-map-gl/) (MapLibre) map, as a controlled React
 component.
 
-- **Your state.** Shapes are a `value` you own (URL, Zustand, a form field, a query cache).
-  `onChange` fires once per finished edit, never during a drag.
-- **Your styles.** The shapes are ordinary `<Source>` and `<Layer>` elements. You style them
-  with MapLibre layer styles and expressions.
-- **No modes.** A press on a corner drags it, a press on a line inserts a corner and drags it,
-  a click on empty map adds to the shape being drawn. There is no "edit mode" to switch into.
-- **No map plumbing.** Pointer gestures arrive through `<Map>` props. Nothing calls
-  `map.addLayer`, `map.on` or `useControl`, so style changes and Strict Mode need no handling.
+> [!NOTE]
+> Claude Opus 5.5 wrote and reviewed the code of this package. [@tordans](https://github.com/tordans) specified what it should do and tested and verified its user-facing behavior.
 
 Part of the [`osm-editor-kit`](https://github.com/osm-editor-kit) family.
 **npm:** [`@osm-editor-kit/react-map-gl-draw`](https://npmx.dev/package/@osm-editor-kit/react-map-gl-draw)
 · **Live preview:** [osm-editor-kit.github.io/react-map-gl-draw](https://osm-editor-kit.github.io/react-map-gl-draw/)
-
-> [!NOTE]
-> Claude Opus 5.5 wrote and reviewed the code of this package. [@tordans](https://github.com/tordans) specified what it should do and tested and verified its user-facing behavior.
-
-Mouse input is exercised on two drawing surfaces of [TILDA](https://tilda-geo.de). Touch input is
-implemented and passes a simulated touch drag in Chromium, but has not been verified on real
-devices yet.
 
 ## Install
 
@@ -32,7 +19,20 @@ bun add @osm-editor-kit/react-map-gl-draw
 
 Peer dependencies: `react` ≥ 19.2, `react-map-gl` ≥ 8, `maplibre-gl` ≥ 4.
 
-## Quick start
+## What it does
+
+- **Your state.** Shapes are a `value` you own (URL, Zustand, a form field, a query cache).
+  `onChange` fires once per finished edit, never during a drag.
+- **Your styles.** The shapes are ordinary `<Source>` and `<Layer>` elements. You style them
+  with MapLibre layer styles and expressions.
+- **No modes.** A press on a corner drags it, a press on a line inserts a corner and drags it,
+  a click on empty map adds to the shape being drawn. There is no "edit mode" to switch into.
+- **No map plumbing.** Pointer gestures arrive through `<Map>` props. Nothing calls
+  `map.addLayer`, `map.on` or `useControl`, so style changes and Strict Mode need no handling.
+
+Mouse input is exercised on two drawing surfaces of [TILDA](https://tilda-geo.de).
+
+## Usage
 
 ```tsx
 import {
