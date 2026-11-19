@@ -10,11 +10,7 @@ body,
 }
 
 body {
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: #1f2937;
